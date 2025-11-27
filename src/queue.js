@@ -1,0 +1,102 @@
+// src/queue.js
+const { v4: uuidv4 } = require('uuid');
+
+const jobs = new Map(); // id -> job
+const queue = [];       // array de ids em ordem de chegada
+
+const JOB_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  WAITING_CAPTCHA: 'waiting_captcha',
+  DONE: 'done',
+  ERROR: 'error',
+};
+
+function createJobsFromKeys(keysArray) {
+  const created = [];
+  keysArray.forEach((key) => {
+    const trimmed = String(key || '').trim();
+    if (!trimmed) return;
+
+    const id = uuidv4();
+    const job = {
+      id,
+      key: trimmed,
+      status: JOB_STATUS.PENDING,
+      errorMessage: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    jobs.set(id, job);
+    queue.push(id);
+    created.push(job);
+  });
+  return created;
+}
+
+function getNextJob() {
+  while (queue.length > 0) {
+    const id = queue.shift();
+    const job = jobs.get(id);
+    if (job && job.status === JOB_STATUS.PENDING) {
+      return job;
+    }
+  }
+  return null;
+}
+
+function updateJob(id, updates) {
+  const job = jobs.get(id);
+  if (!job) return null;
+  Object.assign(job, updates, { updatedAt: new Date() });
+  return job;
+}
+
+function getAllJobs() {
+  return Array.from(jobs.values());
+}
+
+function getSummary() {
+  const summary = {
+    pending: 0,
+    processing: 0,
+    waiting_captcha: 0,
+    done: 0,
+    error: 0,
+  };
+  for (const job of jobs.values()) {
+    if (job.status === JOB_STATUS.PENDING) summary.pending++;
+    if (job.status === JOB_STATUS.PROCESSING) summary.processing++;
+    if (job.status === JOB_STATUS.WAITING_CAPTCHA) summary.waiting_captcha++;
+    if (job.status === JOB_STATUS.DONE) summary.done++;
+    if (job.status === JOB_STATUS.ERROR) summary.error++;
+  }
+  return summary;
+}
+
+module.exports = {
+  JOB_STATUS,
+  createJobsFromKeys,
+  getNextJob,
+  updateJob,
+  getAllJobs,
+  getSummary,
+};
+
+function findJobByKey(key) {
+  key = String(key).trim();
+  for (const job of jobs.values()) {
+    if (job.key === key) return job;
+  }
+  return null;
+}
+
+module.exports = {
+  JOB_STATUS,
+  createJobsFromKeys,
+  getNextJob,
+  updateJob,
+  getAllJobs,
+  getSummary,
+  findJobByKey,   // <<< ADICIONADO
+};

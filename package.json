@@ -1,0 +1,22 @@
+{
+  "name": "consultanotas",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "src/worker.js",
+  "scripts": {
+    "start": "node src/worker.js"
+  },
+  "keywords": [],
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "playwright": "^1.57.0",
+    "socket.io": "^4.8.1",
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5"
+  }
+}
