@@ -1,0 +1,199 @@
+<!-- public/sn.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Monitor Simples Nacional</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body class="app-body nfe-body">
+    <div class="nfe-layout">
+        <!-- SIDEBAR -->
+        <aside class="nfe-sidebar">
+            <div class="nfe-sidebar-top">
+                <div class="nfe-sidebar-logo">
+                    <span class="logo-circle">WL</span>
+                    <span class="logo-text">Portal</span>
+                </div>
+
+                <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+
+            <nav class="nfe-sidebar-menu">
+                <a href="/home.html" class="nfe-menu-item">
+                    <span class="icon">🏠</span>
+                    <span class="label">Início</span>
+                </a>
+                <a href="/home.html#fiscal" class="nfe-menu-item">
+                    <span class="icon">📁</span>
+                    <span class="label">Fiscal</span>
+                </a>
+                <a href="/nfe" class="nfe-menu-item">
+                    <span class="icon">🧾</span>
+                    <span class="label">Consulta NF-e</span>
+                </a>
+                <a href="/sn" class="nfe-menu-item active">
+                    <span class="icon">📄</span>
+                    <span class="label">Declaração SN</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="nfe-main">
+            <!-- Cabeçalho / Breadcrumb -->
+            <header class="nfe-header">
+                <div class="nfe-breadcrumb">Portal / Fiscal / Declaração SN</div>
+                <h1>Declaração Mensal – Simples Nacional</h1>
+                <p>Envie a declaração mensal sem movimento diretamente pelo Integra Contador.</p>
+            </header>
+
+            <!-- Linha principal -->
+            <section class="nfe-row">
+                <!-- CARD FORM -->
+                <div class="nfe-card nfe-card-upload">
+                    <h2>Enviar declaração</h2>
+                    <p class="nfe-card-subtitle">
+                        Informe o CNPJ e o período de apuração (AAAAMM) para enviar a declaração.
+                    </p>
+
+                    <form id="snForm" class="nfe-upload-form">
+                        <label class="nfe-input-file-label">
+                            <span>CNPJ:</span>
+                            <input type="text" id="cnpj" maxlength="14" placeholder="00000000000100" required />
+                        </label>
+
+                        <label class="nfe-input-file-label">
+                            <span>Período de Apuração (AAAAMM):</span>
+                            <input type="text" id="pa" maxlength="6" placeholder="202501" required />
+                        </label>
+
+                        <button type="submit" id="btnEnviarDecl" class="btn btn-primary">
+                            Enviar declaração
+                        </button>
+                    </form>
+
+                    <div id="snStatus" class="nfe-upload-message"></div>
+                </div>
+
+                <!-- CARD RESUMO DE CONSUMO -->
+                <div class="nfe-card nfe-card-ext">
+                    <h2>Resumo do consumo</h2>
+                    <p class="nfe-card-subtitle">
+                        Acompanhe quantas declarações foram enviadas no mês e o preço unitário atual.
+                    </p>
+                    <p id="consumoInfo">Nenhuma requisição enviada.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Toggle do sidebar (recolher/expandir)
+        document.addEventListener('DOMContentLoaded', function () {
+            var layout = document.querySelector('.nfe-layout');
+            var sidebarToggle = document.getElementById('sidebarToggle');
+
+            if (layout && sidebarToggle) {
+                sidebarToggle.addEventListener('click', function () {
+                    layout.classList.toggle('collapsed');
+                });
+            }
+        });
+
+        var snForm = document.getElementById('snForm');
+        var statusDiv = document.getElementById('snStatus');
+        var consumoInfo = document.getElementById('consumoInfo');
+        var btnEnviarDecl = document.getElementById('btnEnviarDecl');
+
+        function setSending(isSending) {
+            if (!btnEnviarDecl) return;
+            if (isSending) {
+                btnEnviarDecl.disabled = true;
+                btnEnviarDecl.textContent = 'Enviando...';
+            } else {
+                btnEnviarDecl.disabled = false;
+                btnEnviarDecl.textContent = 'Enviar declaração';
+            }
+        }
+
+        snForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            var cnpj = document.getElementById('cnpj').value.trim();
+            var pa = document.getElementById('pa').value.trim();
+
+            if (!cnpj || !pa) {
+                statusDiv.textContent = 'Preencha CNPJ e período de apuração.';
+                return;
+            }
+
+            statusDiv.textContent = 'Enviando...';
+            setSending(true);
+
+            fetch('/api/sn/declaration', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cnpj: cnpj,
+                    pa: parseInt(pa, 10),
+                    tipoDeclaracao: 1,
+                    receitaInterna: 0,
+                    receitaExterna: 0,
+                    indicadorTransmissao: true,
+                    indicadorComparacao: false
+                })
+            })
+                .then(function (resp) { return resp.json().then(function (data) { return { ok: resp.ok, data: data }; }); })
+                .then(function (result) {
+                    var ok = result.ok;
+                    var data = result.data;
+
+                    if (ok) {
+                        var msg = 'Requisição enviada com status ' + data.status + '.';
+                        if (data.mensagens && data.mensagens.length) {
+                            msg += '\n\n' + data.mensagens.map(function (m) {
+                                return '[' + m.codigo + '] ' + m.texto;
+                            }).join('\n');
+                        }
+                        statusDiv.textContent = msg;
+                        if (typeof data.consumoAtual === 'number' && typeof data.precoUnitario === 'number') {
+                            consumoInfo.textContent =
+                                'Consumo atual: ' + data.consumoAtual +
+                                ' | Preço unitário: R$ ' + data.precoUnitario.toFixed(2);
+                        }
+                    } else {
+                        var msgErro = (data.error || 'Erro ao enviar declaração.');
+
+                        if (data.status) {
+                            msgErro += '\nStatus HTTP: ' + data.status;
+                        }
+
+                        if (data.mensagens && data.mensagens.length) {
+                            msgErro += '\n\n' + data.mensagens.map(function (m) {
+                                return '[' + m.codigo + '] ' + m.texto;
+                            }).join('\n');
+                        }
+
+                        statusDiv.textContent = msgErro;
+                    }
+
+                })
+                .catch(function () {
+                    statusDiv.textContent = 'Falha na comunicação com o servidor.';
+                })
+                .finally(function () {
+                    setSending(false);
+                });
+        });
+    </script>
+</body>
+
+</html>

@@ -41,6 +41,7 @@ function getNextJob() {
     if (job && job.status === JOB_STATUS.PENDING) {
       return job;
     }
+    // se job não existir ou não estiver mais pendente, ignora e vai pro próximo
   }
   return null;
 }
@@ -53,6 +54,7 @@ function updateJob(id, updates) {
 }
 
 function getAllJobs() {
+  // retorna um array novo, não a estrutura interna
   return Array.from(jobs.values());
 }
 
@@ -74,21 +76,38 @@ function getSummary() {
   return summary;
 }
 
-module.exports = {
-  JOB_STATUS,
-  createJobsFromKeys,
-  getNextJob,
-  updateJob,
-  getAllJobs,
-  getSummary,
-};
-
 function findJobByKey(key) {
   key = String(key).trim();
   for (const job of jobs.values()) {
     if (job.key === key) return job;
   }
   return null;
+}
+
+/**
+ * Apaga definitivamente todos os jobs cujo status esteja em `statuses`.
+ * Também remove o id da fila `queue` se ainda estiver lá.
+ * Retorna quantos jobs foram removidos.
+ */
+function deleteJobsByStatus(statuses) {
+  const statusSet = new Set(statuses);
+  const idsToDelete = [];
+
+  for (const [id, job] of jobs.entries()) {
+    if (statusSet.has(job.status)) {
+      idsToDelete.push(id);
+    }
+  }
+
+  idsToDelete.forEach((id) => {
+    jobs.delete(id);
+    const idx = queue.indexOf(id);
+    if (idx !== -1) {
+      queue.splice(idx, 1);
+    }
+  });
+
+  return idsToDelete.length;
 }
 
 module.exports = {
@@ -98,5 +117,6 @@ module.exports = {
   updateJob,
   getAllJobs,
   getSummary,
-  findJobByKey,   // <<< ADICIONADO
+  findJobByKey,
+  deleteJobsByStatus,
 };
