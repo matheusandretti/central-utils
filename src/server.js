@@ -1,5 +1,5 @@
-// src/server.js
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const http = require('http');
 const multer = require('multer');
@@ -8,6 +8,15 @@ const cors = require('cors'); // <<< NOVO
 require('dotenv').config();
 const axios = require('axios'); // para chamar a API Integra Contador
 const { autenticarSerpro } = require("./serpro-auth");
+const { Pool } = require('pg'); // << ADICIONE ESTA LINHA
+
+const DATA_DIR = path.join(__dirname, '..', 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR);
+}
+
+// Arquivo de resumo do SN (apenas um)
+const SN_SUMMARY_FILE = path.join(DATA_DIR, 'sn_summary.json');
 
 const {
   JOB_STATUS,
@@ -54,7 +63,7 @@ app.get('/nfe', (req, res) => {
   res.sendFile(path.join(publicDir, 'nfe.html'));  // nova tela modernizada
 });
 
-// para conseguir ler JSON do body (usado em /api/mark-done)
+// para conseguir ler JSON do body (usado em /api/mark-done e SN)
 app.use(express.json());
 
 // <<< ROTAS DA EXTENSÃO / API >>>
@@ -215,8 +224,165 @@ module.exports = {
   broadcastJobUpdate,
 };
 
-let declarationCount = 0;
+// ----------------------------------------------------------------------
+// SIMPLES NACIONAL – CADASTRO, RESUMO E DECLARAÇÃO EM LOTE
+// ----------------------------------------------------------------------
 
+// pasta de dados (para empresas SN e resumo de consumo)
+
+const SN_COMPANIES_FILE = path.join(DATA_DIR, 'sn_companies.json');
+
+// ---------- FUNÇÕES AUXILIARES (EMPRESAS SN) ----------
+
+function loadSnCompanies() {
+  if (!fs.existsSync(SN_COMPANIES_FILE)) return [];
+  try {
+    return JSON.parse(fs.readFileSync(SN_COMPANIES_FILE, 'utf-8'));
+  } catch (e) {
+    console.error('Erro ao ler sn_companies.json:', e);
+    return [];
+  }
+}
+
+function saveSnCompanies(companies) {
+  fs.writeFileSync(SN_COMPANIES_FILE, JSON.stringify(companies, null, 2));
+}
+
+// ---------- FUNÇÕES AUXILIARES (RESUMO DE CONSUMO SN) ----------
+
+function loadSnSummary() {
+  if (!fs.existsSync(SN_SUMMARY_FILE)) {
+    return {
+      totalRequisicoes: 0,
+      totalSucesso: 0,
+      totalErro: 0,
+      ultimaAtualizacao: null,
+    };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(SN_SUMMARY_FILE, 'utf-8'));
+  } catch (e) {
+    console.error('Erro ao ler sn_summary.json:', e);
+    return {
+      totalRequisicoes: 0,
+      totalSucesso: 0,
+      totalErro: 0,
+      ultimaAtualizacao: null,
+    };
+  }
+}
+
+function saveSnSummary(summary) {
+  summary.ultimaAtualizacao = new Date().toISOString();
+  fs.writeFileSync(SN_SUMMARY_FILE, JSON.stringify(summary, null, 2));
+}
+
+function registrarSnResultado(sucesso) {
+  const summary = loadSnSummary();
+  summary.totalRequisicoes += 1;
+  if (sucesso) summary.totalSucesso += 1;
+  else summary.totalErro += 1;
+  saveSnSummary(summary);
+  return summary;
+}
+
+// ----------------------------------------------------------------------
+// SIMPLES NACIONAL – DB (Postgres), resumo e envio/consulta em lote
+// ----------------------------------------------------------------------
+
+// Pool do Postgres
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// ---------- FUNÇÕES AUXILIARES: EMPRESAS (Postgres) ----------
+
+async function dbGetSnCompanies() {
+  const result = await pool.query(
+    'SELECT id, cnpj, razao_social FROM sn_companies ORDER BY razao_social'
+  );
+  return result.rows.map((r) => ({
+    id: r.id,
+    cnpj: r.cnpj,
+    razaoSocial: r.razao_social,
+  }));
+}
+
+async function dbCreateSnCompany(cnpj, razaoSocial) {
+  const result = await pool.query(
+    'INSERT INTO sn_companies (cnpj, razao_social) VALUES ($1, $2) RETURNING id, cnpj, razao_social',
+    [cnpj, razaoSocial]
+  );
+  const r = result.rows[0];
+  return {
+    id: r.id,
+    cnpj: r.cnpj,
+    razaoSocial: r.razao_social,
+  };
+}
+
+// ---------- FUNÇÕES AUXILIARES: RECIBOS (Postgres) ----------
+
+async function dbGetReceiptByCompanyAndPa(companyId, pa) {
+  const result = await pool.query(
+    'SELECT id FROM sn_receipts WHERE company_id = $1 AND pa = $2',
+    [companyId, pa]
+  );
+  return result.rows[0] || null;
+}
+
+async function dbSaveReceipt(companyId, pa, pdfBuffer) {
+  const result = await pool.query(
+    'INSERT INTO sn_receipts (company_id, pa, pdf) VALUES ($1, $2, $3) RETURNING id',
+    [companyId, pa, pdfBuffer]
+  );
+  return result.rows[0];
+}
+
+async function dbGetReceiptById(id) {
+  const result = await pool.query(
+    'SELECT pdf FROM sn_receipts WHERE id = $1',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+// ---------- FUNÇÕES AUXILIARES: RESUMO (JSON) ----------
+
+function loadSnSummary() {
+  if (!fs.existsSync(SN_SUMMARY_FILE)) {
+    return {
+      totalOperacoes: 0,      // declarações + consultas
+      totalDeclaracoes: 0,
+      totalConsultas: 0,
+      totalSucesso: 0,
+      totalErro: 0,
+      valorTotal: 0,          // em R$
+      ultimaAtualizacao: null,
+    };
+  }
+  try {
+    return JSON.parse(fs.readFileSync(SN_SUMMARY_FILE, 'utf-8'));
+  } catch (e) {
+    console.error('Erro ao ler sn_summary.json:', e);
+    return {
+      totalOperacoes: 0,
+      totalDeclaracoes: 0,
+      totalConsultas: 0,
+      totalSucesso: 0,
+      totalErro: 0,
+      valorTotal: 0,
+      ultimaAtualizacao: null,
+    };
+  }
+}
+
+function saveSnSummary(summary) {
+  summary.ultimaAtualizacao = new Date().toISOString();
+  fs.writeFileSync(SN_SUMMARY_FILE, JSON.stringify(summary, null, 2));
+}
+
+// mesma tabela de preço que você já tinha
 function calculateDeclarationCost(consumption) {
   if (consumption <= 100) return 0.40;
   if (consumption <= 500) return 0.36;
@@ -228,15 +394,122 @@ function calculateDeclarationCost(consumption) {
   return 0.12;
 }
 
+/**
+ * tipoOperacao: 'declaracao' | 'consulta'
+ */
+function registrarSnResultado(sucesso, tipoOperacao) {
+  const summary = loadSnSummary();
+
+  summary.totalOperacoes += 1;
+  if (tipoOperacao === 'declaracao') summary.totalDeclaracoes += 1;
+  if (tipoOperacao === 'consulta') summary.totalConsultas += 1;
+  if (sucesso) summary.totalSucesso += 1;
+  else summary.totalErro += 1;
+
+  const unitPrice = calculateDeclarationCost(summary.totalOperacoes);
+  summary.valorTotal += unitPrice;
+
+  saveSnSummary(summary);
+  return summary;
+}
+
+function buildResumoResponse() {
+  const summary = loadSnSummary();
+  const consumoAtual = summary.totalOperacoes;
+  const precoUnitario = calculateDeclarationCost(consumoAtual);
+  return {
+    consumoAtual,
+    totalDeclaracoes: summary.totalDeclaracoes,
+    totalConsultas: summary.totalConsultas,
+    totalSucesso: summary.totalSucesso,
+    totalErro: summary.totalErro,
+    precoUnitario,
+    valorTotal: summary.valorTotal,
+    ultimaAtualizacao: summary.ultimaAtualizacao,
+  };
+}
+
+// ---------- ROTAS DE PÁGINA ----------
+
 app.get('/sn', (req, res) => {
   res.sendFile(path.join(publicDir, 'sn.html'));
 });
 
+// ---------- ROTAS API SN: EMPRESAS + RESUMO + RECIBO ----------
+
+// lista empresas cadastradas (Postgres)
+app.get('/api/sn/companies', async (req, res) => {
+  try {
+    const companies = await dbGetSnCompanies();
+    res.json(companies);
+  } catch (err) {
+    console.error('Erro ao listar empresas SN:', err);
+    res.status(500).json({ error: 'Erro ao listar empresas.' });
+  }
+});
+
+// cadastra nova empresa SN
+app.post('/api/sn/companies', async (req, res) => {
+  try {
+    const { cnpj, razaoSocial } = req.body;
+
+    if (!cnpj || !razaoSocial) {
+      return res
+        .status(400)
+        .json({ error: 'Campos obrigatórios: cnpj e razaoSocial.' });
+    }
+
+    const existing = await pool.query(
+      'SELECT 1 FROM sn_companies WHERE cnpj = $1',
+      [cnpj]
+    );
+    if (existing.rowCount > 0) {
+      return res
+        .status(400)
+        .json({ error: 'Já existe empresa cadastrada com este CNPJ.' });
+    }
+
+    const newCompany = await dbCreateSnCompany(cnpj, razaoSocial);
+    res.status(201).json(newCompany);
+  } catch (err) {
+    console.error('Erro ao cadastrar empresa SN:', err);
+    res.status(500).json({ error: 'Erro ao cadastrar empresa.' });
+  }
+});
+
+// resumo de consumo (inclui valor total em R$)
+app.get('/api/sn/summary', (req, res) => {
+  try {
+    res.json(buildResumoResponse());
+  } catch (err) {
+    console.error('Erro ao carregar resumo SN:', err);
+    res.status(500).json({ error: 'Erro ao carregar resumo.' });
+  }
+});
+
+// download de recibo em PDF
+app.get('/api/sn/receipt/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).send('ID inválido.');
+
+    const row = await dbGetReceiptById(id);
+    if (!row) return res.status(404).send('Recibo não encontrado.');
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(row.pdf);
+  } catch (err) {
+    console.error('Erro ao buscar recibo SN:', err);
+    res.status(500).send('Erro ao buscar recibo.');
+  }
+});
+
+// ---------- ROTA: DECLARAÇÃO SN EM LOTE ----------
+
 app.post('/api/sn/declaration', async (req, res) => {
   try {
     const {
-      cnpj,
-      pa,
+      pa,                         // já no formato AAAAMM (montado no front a partir de mês/ano)
       tipoDeclaracao = 1,
       receitaInterna = 0,
       receitaExterna = 0,
@@ -244,18 +517,45 @@ app.post('/api/sn/declaration', async (req, res) => {
       indicadorComparacao = false,
       valoresParaComparacao = null,
       complemento = null,
-      estabelecimentos: estabelecimentosEntrada = null, // opcional no body
+      estabelecimentos: estabelecimentosEntrada = null,
+      companyIds = null,
+      all = false,
     } = req.body;
 
     const contratante = process.env.CONTRATANTE_CNPJ;
 
-    if (!cnpj || !pa) {
+    if (!pa) {
       return res
         .status(400)
-        .json({ error: 'CNPJ e período de apuração (pa) são obrigatórios.' });
+        .json({ error: 'Período de apuração (pa) é obrigatório.' });
     }
 
-    // 1) Autenticação SAPI (/authenticate) -> access_token + jwt_token
+    // empresas que serão processadas
+    const empresasCadastradas = await dbGetSnCompanies();
+    let empresasParaProcessar = [];
+
+    if (all || (Array.isArray(companyIds) && companyIds.length > 0)) {
+      if (all) {
+        empresasParaProcessar = empresasCadastradas;
+      } else {
+        const idsNum = companyIds.map(Number);
+        empresasParaProcessar = empresasCadastradas.filter((c) =>
+          idsNum.includes(c.id)
+        );
+      }
+    } else {
+      return res
+        .status(400)
+        .json({ error: 'Selecione pelo menos uma empresa.' });
+    }
+
+    if (empresasParaProcessar.length === 0) {
+      return res
+        .status(400)
+        .json({ error: 'Nenhuma empresa encontrada para processar.' });
+    }
+
+    // autenticação Serpro
     const { access_token, jwt_token } = await autenticarSerpro();
 
     if (!access_token || !jwt_token) {
@@ -265,59 +565,6 @@ app.post('/api/sn/declaration', async (req, res) => {
       });
     }
 
-    // 2) Montagem de "estabelecimentos"
-    // Se o cliente mandar no body, usamos; senão, criamos um "sem movimento"
-    let estabelecimentos;
-
-    if (Array.isArray(estabelecimentosEntrada) && estabelecimentosEntrada.length > 0) {
-      estabelecimentos = estabelecimentosEntrada;
-    } else {
-      // Declaração sem movimento: só o CNPJ, sem lista de atividades
-      estabelecimentos = [
-        {
-          cnpjCompleto: cnpj,
-          // NÃO enviamos "atividades" => sem movimento
-        },
-      ];
-    }
-
-    // 3) Objeto "declaracao" conforme schema da doc
-    const declaracaoObj = {
-      tipoDeclaracao,                         // 1 = original, etc.
-      receitaPaCompetenciaInterno: receitaInterna,
-      receitaPaCompetenciaExterno: receitaExterna,
-      // receitasPaCaixa* / valorFixo* / receitasBrutasAnteriores / folhasSalario / etc. se precisar
-      ...(complemento || {}),
-      estabelecimentos,                      // <-- OBRIGATÓRIO
-    };
-
-    // 4) Objeto "dados" (campo pedidoDados.dados)
-    const dadosPGDAS = {
-      cnpjCompleto: cnpj,
-      pa: Number(pa),             // a doc espera Number AAAAMM
-      indicadorTransmissao,
-      indicadorComparacao,
-      declaracao: declaracaoObj,
-    };
-
-    if (valoresParaComparacao && indicadorComparacao) {
-      dadosPGDAS.valoresParaComparacao = valoresParaComparacao;
-    }
-
-    // 5) Payload Integra Contador
-    const payload = {
-      contratante: { numero: contratante, tipo: 2 },
-      autorPedidoDados: { numero: contratante, tipo: 2 },
-      contribuinte: { numero: cnpj, tipo: 2 },
-      pedidoDados: {
-        idSistema: 'PGDASD',
-        idServico: 'TRANSDECLARACAO11',
-        versaoSistema: '1.0',
-        dados: JSON.stringify(dadosPGDAS),
-      },
-    };
-
-    // 6) Headers: Bearer + jwt_token
     const headers = {
       Authorization: 'Bearer ' + access_token,
       jwt_token: jwt_token,
@@ -328,33 +575,450 @@ app.post('/api/sn/declaration', async (req, res) => {
     const url =
       'https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Declarar';
 
-    const apiResp = await axios.post(url, payload, { headers });
+    const resultados = [];
 
-    // Se quiser manter o controle de consumo / preço, encaixa aqui:
-    // declarationCount += 1;
-    // const price = calculateDeclarationCost(declarationCount);
+    for (const empresa of empresasParaProcessar) {
+      try {
+        let estabelecimentos;
 
-    res.json({
-      status: apiResp.status,
-      ...apiResp.data,
-      // consumoAtual: declarationCount,
-      // precoUnitario: price,
-    });
-  } catch (err) {
-    console.error(
-      'Erro ao chamar Integra Contador:',
-      err.response ? err.response.data : err.message
-    );
+        if (Array.isArray(estabelecimentosEntrada) && estabelecimentosEntrada.length > 0) {
+          estabelecimentos = estabelecimentosEntrada;
+        } else {
+          estabelecimentos = [
+            {
+              cnpjCompleto: empresa.cnpj,
+            },
+          ];
+        }
 
-    if (err.response) {
-      return res.status(err.response.status).json({
-        error: 'Erro na API',
-        status: err.response.status,
-        mensagens: err.response.data && err.response.data.mensagens,
-      });
+        const declaracaoObj = {
+          tipoDeclaracao,
+          receitaPaCompetenciaInterno: receitaInterna,
+          receitaPaCompetenciaExterno: receitaExterna,
+          ...(complemento || {}),
+          estabelecimentos,
+        };
+
+        const dadosPGDAS = {
+          cnpjCompleto: empresa.cnpj,
+          pa: Number(pa),
+          indicadorTransmissao,
+          indicadorComparacao,
+          declaracao: declaracaoObj,
+        };
+
+        if (valoresParaComparacao && indicadorComparacao) {
+          dadosPGDAS.valoresParaComparacao = valoresParaComparacao;
+        }
+
+        const payload = {
+          contratante: { numero: contratante, tipo: 2 },
+          autorPedidoDados: { numero: contratante, tipo: 2 },
+          contribuinte: { numero: empresa.cnpj, tipo: 2 },
+          pedidoDados: {
+            idSistema: 'PGDASD',
+            idServico: 'TRANSDECLARACAO11',
+            versaoSistema: '1.0',
+            dados: JSON.stringify(dadosPGDAS),
+          },
+        };
+
+        const apiResp = await axios.post(url, payload, { headers });
+
+        registrarSnResultado(true, 'declaracao');
+
+        resultados.push({
+          tipo: 'declaracao',
+          cnpj: empresa.cnpj,
+          razaoSocial: empresa.razaoSocial || '',
+          sucesso: true,
+          status: apiResp.status,
+          mensagens:
+            apiResp.data && apiResp.data.mensagens ? apiResp.data.mensagens : [],
+          receiptId: null,
+          fromCache: false,
+        });
+      } catch (errEnvio) {
+        console.error(
+          'Erro ao declarar CNPJ',
+          empresa.cnpj,
+          errEnvio.response ? errEnvio.response.data : errEnvio.message
+        );
+
+        registrarSnResultado(false, 'declaracao');
+
+        const status = errEnvio.response ? errEnvio.response.status : 500;
+        const mensagens =
+          errEnvio.response &&
+            errEnvio.response.data &&
+            errEnvio.response.data.mensagens
+            ? errEnvio.response.data.mensagens
+            : null;
+
+        resultados.push({
+          tipo: 'declaracao',
+          cnpj: empresa.cnpj,
+          razaoSocial: empresa.razaoSocial || '',
+          sucesso: false,
+          status,
+          error: errEnvio.message,
+          mensagens,
+          receiptId: null,
+          fromCache: false,
+        });
+      }
     }
 
-    res.status(500).json({ error: err.message });
+    res.json({
+      resultados,
+      resumoConsumo: buildResumoResponse(),
+    });
+  } catch (err) {
+    console.error('Erro geral ao enviar declarações SN:', err);
+    res.status(500).json({ error: err.message || 'Erro ao enviar declarações.' });
   }
 });
 
+// ---------- ROTA: CONSULTA ÚLTIMO RECIBO POR PERÍODO ----------
+
+// ---------- ROTA: CONSULTA ÚLTIMA DECLARAÇÃO / RECIBO POR PA ----------
+app.post('/api/sn/consult-last', async (req, res) => {
+  try {
+    const {
+      pa,                // AAAAMM, ex: 202511
+      companyIds = null,
+      all = false,
+    } = req.body;
+
+    const contratante = process.env.CONTRATANTE_CNPJ;
+
+    if (!pa) {
+      return res
+        .status(400)
+        .json({ error: 'Período de apuração (pa) é obrigatório.' });
+    }
+
+    // 1) Carrega empresas cadastradas
+    const empresasCadastradas = await dbGetSnCompanies();
+    let empresasParaProcessar = [];
+
+    if (all) {
+      empresasParaProcessar = empresasCadastradas;
+    } else if (Array.isArray(companyIds) && companyIds.length > 0) {
+      const idsNum = companyIds.map(Number);
+      empresasParaProcessar = empresasCadastradas.filter((c) =>
+        idsNum.includes(c.id)
+      );
+    } else {
+      return res
+        .status(400)
+        .json({ error: 'Selecione pelo menos uma empresa.' });
+    }
+
+    if (empresasParaProcessar.length === 0) {
+      return res
+        .status(400)
+        .json({ error: 'Nenhuma empresa encontrada para processar.' });
+    }
+
+    // 2) Autentica no SERPRO
+    const { access_token, jwt_token } = await autenticarSerpro();
+
+    if (!access_token) {
+      return res.status(500).json({
+        error:
+          'access_token não retornado pelo SERPRO. Verifique o endpoint /authenticate e as credenciais.',
+      });
+    }
+
+    // PRODUÇÃO:
+    const url =
+      'https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Consultar';
+    // Se quiser testar no ambiente trial, troque pela linha abaixo:
+    // const url = 'https://gateway.apiserpro.serpro.gov.br/integra-contador-trial/v1/Consultar';
+
+    const headers = {
+      Authorization: 'Bearer ' + access_token,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (jwt_token) {
+      headers.jwt_token = jwt_token;   // obrigatório em produção
+    }
+
+    const resultados = [];
+    const paStr = String(pa); // "202511"
+
+    // helper para tentar transformar data.dados em Buffer de PDF
+    // helper para tentar transformar data.dados em Buffer de PDF
+    // helper para tentar transformar data.dados em Buffer de PDF
+    function decodePdfFromDados(dadosStr) {
+      if (!dadosStr) return null;
+
+      // 1) Tenta direto: dadosStr é base64 de PDF
+      try {
+        const bufBase64 = Buffer.from(dadosStr, 'base64');
+        const sig1 = bufBase64.slice(0, 5).toString();
+        if (sig1 === '%PDF-') {
+          return bufBase64;
+        }
+      } catch (_) {
+        // ignora, vamos tentar outras formas
+      }
+
+      // 2) Tenta interpretar dadosStr como JSON
+      try {
+        const jsonDados = JSON.parse(dadosStr);
+
+        // 2.1 caminho mais provável: json.recibo.pdf
+        if (
+          jsonDados.recibo &&
+          typeof jsonDados.recibo.pdf === 'string'
+        ) {
+          try {
+            const buf = Buffer.from(jsonDados.recibo.pdf, 'base64');
+            const sig = buf.slice(0, 5).toString();
+            if (sig === '%PDF-') {
+              return buf;
+            }
+          } catch (_) {
+            // se der erro, cai pro restante da busca
+          }
+        }
+
+        // 2.2 busca recursiva em qualquer campo string que seja base64 de PDF
+        function buscaPdfEmObjeto(obj) {
+          if (!obj || typeof obj !== 'object') return null;
+
+          for (const [chave, val] of Object.entries(obj)) {
+            if (typeof val === 'string') {
+              try {
+                const buf = Buffer.from(val, 'base64');
+                const sig = buf.slice(0, 5).toString();
+                if (sig === '%PDF-') {
+                  return buf;
+                }
+              } catch (_) {
+                // não era base64 válido, segue
+              }
+            } else if (val && typeof val === 'object') {
+              const achou = buscaPdfEmObjeto(val);
+              if (achou) return achou;
+            }
+          }
+          return null;
+        }
+
+        const bufEncontrado = buscaPdfEmObjeto(jsonDados);
+        if (bufEncontrado) return bufEncontrado;
+
+      } catch (_) {
+        // dadosStr não é JSON, segue
+      }
+
+      // 3) Por último, assume que dadosStr já é o texto do PDF
+      try {
+        const bufUtf8 = Buffer.from(String(dadosStr), 'utf8');
+        const sig3 = bufUtf8.slice(0, 5).toString();
+        if (sig3 === '%PDF-') {
+          return bufUtf8;
+        }
+      } catch (_) {
+        // nada a fazer
+      }
+
+      // Nenhuma das tentativas funcionou
+      return null;
+    }
+
+    for (const empresa of empresasParaProcessar) {
+      try {
+        // 3) Checa se já existe recibo no banco
+        let receiptRow = await dbGetReceiptByCompanyAndPa(empresa.id, pa);
+        let fromCache = false;
+        let receiptId = null;
+
+        if (receiptRow) {
+          fromCache = true;
+          receiptId = receiptRow.id;
+          registrarSnResultado(true, 'consulta');
+        } else {
+          // 4) Monta payload conforme doc (CONSULTIMADECREC14)
+          const payload = {
+            contratante: { numero: contratante, tipo: 2 },
+            autorPedidoDados: { numero: contratante, tipo: 2 },
+            contribuinte: { numero: empresa.cnpj, tipo: 2 },
+            pedidoDados: {
+              idSistema: 'PGDASD',
+              idServico: 'CONSULTIMADECREC14',
+              versaoSistema: '1.0',
+              dados: JSON.stringify({ periodoApuracao: paStr }),
+            },
+          };
+
+          const apiResp = await axios.post(url, payload, { headers });
+          const data = apiResp.data;
+
+          console.log('--- RESPOSTA SERPRO CONSULTIMADECREC14 ---');
+          console.log('status:', data.status);
+          console.log('mensagens:', data.mensagens);
+          console.log('dados (primeiros 200 chars):', String(data.dados).slice(0, 200));
+
+
+          // Exemplo de retorno:
+          // { status: 200, dados: "<string>", mensagens: [...] }
+
+          if (data.status && data.status !== 200) {
+            // a própria API está dizendo que deu erro de negócio
+            registrarSnResultado(false, 'consulta');
+            resultados.push({
+              tipo: 'consulta',
+              cnpj: empresa.cnpj,
+              razaoSocial: empresa.razaoSocial || '',
+              sucesso: false,
+              status: data.status,
+              error: 'Erro de negócio retornado pela API.',
+              mensagens: data.mensagens || null,
+              receiptId: null,
+              fromCache: false,
+            });
+            continue;
+          }
+
+          // tenta extrair PDF de data.dados
+          // tenta extrair PDF de data.dados
+          const pdfBuffer = decodePdfFromDados(data.dados);
+
+          if (!pdfBuffer) {
+            // A API respondeu, mas não veio um PDF válido no campo "dados".
+            // Podemos ter 2 cenários:
+            //  - Mensagem de sucesso de negócio (ex: [[Sucesso-PGDASD]])
+            //  - Algum outro erro lógico
+
+            const statusApi = data.status || apiResp.status;
+            const mensagensApi = data.mensagens || null;
+            const temMensagemSucesso =
+              Array.isArray(mensagensApi) &&
+              mensagensApi.some(
+                (m) =>
+                  m &&
+                  typeof m.texto === 'string' &&
+                  m.texto.toLowerCase().includes('sucesso')
+              );
+
+            if (temMensagemSucesso || statusApi === 200) {
+              // Consulta foi bem-sucedida do ponto de vista do SERPRO,
+              // mas não há recibo em PDF para salvar.
+              registrarSnResultado(true, 'consulta');
+
+              resultados.push({
+                tipo: 'consulta',
+                cnpj: empresa.cnpj,
+                razaoSocial: empresa.razaoSocial || '',
+                sucesso: true,                 // <<< agora aparece "Sucesso" na tabela
+                status: statusApi,
+                error: null,
+                mensagens: mensagensApi,
+                receiptId: null,               // sem PDF, então sem link
+                fromCache: false,
+              });
+            } else {
+              // Aqui sim tratamos como erro de fato
+              registrarSnResultado(false, 'consulta');
+
+              resultados.push({
+                tipo: 'consulta',
+                cnpj: empresa.cnpj,
+                razaoSocial: empresa.razaoSocial || '',
+                sucesso: false,
+                status: statusApi,
+                error: 'Resposta não contém PDF válido em "dados".',
+                mensagens: mensagensApi,
+                receiptId: null,
+                fromCache: false,
+              });
+            }
+
+            continue;
+          }
+
+
+          // 5) Salva no banco
+          const saved = await dbSaveReceipt(empresa.id, pa, pdfBuffer);
+          receiptId = saved.id;
+
+          registrarSnResultado(true, 'consulta');
+        }
+
+        resultados.push({
+          tipo: 'consulta',
+          cnpj: empresa.cnpj,
+          razaoSocial: empresa.razaoSocial || '',
+          sucesso: true,
+          status: 200,
+          mensagens: null,
+          receiptId,
+          fromCache,
+        });
+      } catch (errConsulta) {
+        // 6) Tratamento de erro HTTP (403, 500, etc.)
+        let status = 500;
+        let mensagens = null;
+        let errorMsg = errConsulta.message;
+        let logText = null;
+
+        if (errConsulta.response) {
+          status = errConsulta.response.status || 500;
+
+          const raw = errConsulta.response.data;
+          if (Buffer.isBuffer(raw)) {
+            logText = raw.toString('utf8');
+          } else if (typeof raw === 'string') {
+            logText = raw;
+          } else if (typeof raw === 'object' && raw !== null) {
+            logText = JSON.stringify(raw);
+          }
+
+          if (logText) {
+            try {
+              const json = JSON.parse(logText);
+              if (Array.isArray(json.mensagens)) {
+                mensagens = json.mensagens;
+              }
+            } catch (_) { }
+          }
+        }
+
+        console.error(
+          'Erro ao consultar recibo SN para CNPJ',
+          empresa.cnpj,
+          logText || errorMsg
+        );
+
+        registrarSnResultado(false, 'consulta');
+
+        resultados.push({
+          tipo: 'consulta',
+          cnpj: empresa.cnpj,
+          razaoSocial: empresa.razaoSocial || '',
+          sucesso: false,
+          status,
+          error: errorMsg,
+          mensagens,
+          receiptId: null,
+          fromCache: false,
+        });
+      }
+    }
+
+    res.json({
+      resultados,
+      resumoConsumo: buildResumoResponse(),
+    });
+  } catch (err) {
+    console.error('Erro geral ao consultar últimos recibos SN:', err);
+    res
+      .status(500)
+      .json({ error: err.message || 'Erro ao consultar recibos.' });
+  }
+});

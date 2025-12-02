@@ -1,199 +1,632 @@
-<!-- public/sn.html -->
 <!DOCTYPE html>
 <html lang="pt-br">
 
 <head>
-    <meta charset="UTF-8" />
-    <title>Monitor Simples Nacional</title>
-    <link rel="stylesheet" href="styles.css" />
-    <script src="/socket.io/socket.io.js"></script>
+  <meta charset="UTF-8" />
+  <title>Monitor Simples Nacional</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body class="app-body nfe-body">
-    <div class="nfe-layout">
-        <!-- SIDEBAR -->
-        <aside class="nfe-sidebar">
-            <div class="nfe-sidebar-top">
-                <div class="nfe-sidebar-logo">
-                    <span class="logo-circle">WL</span>
-                    <span class="logo-text">Portal</span>
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <nav class="nfe-sidebar-menu">
+        <a href="/home.html" class="nfe-menu-item">
+          <span class="icon">🏠</span>
+          <span class="label">Início</span>
+        </a>
+        <a href="/home.html#fiscal" class="nfe-menu-item">
+          <span class="icon">📁</span>
+          <span class="label">Fiscal</span>
+        </a>
+        <a href="/nfe" class="nfe-menu-item">
+          <span class="icon">🧾</span>
+          <span class="label">Consulta NF-e</span>
+        </a>
+        <a href="/sn" class="nfe-menu-item active">
+          <span class="icon">📄</span>
+          <span class="label">Declaração SN</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <!-- Cabeçalho / Breadcrumb -->
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Fiscal / Declaração SN</div>
+        <h1>Declaração Mensal – Simples Nacional</h1>
+        <p>Cadastre as empresas, selecione o período e envie declarações ou consulte os recibos via Integra Contador.</p>
+      </header>
+
+      <!-- Linha principal: filtros + resumo -->
+      <section class="nfe-row">
+        <!-- CARD: Empresas, período e ações -->
+        <div class="nfe-card nfe-card-upload">
+          <h2>Empresas e período de apuração</h2>
+          <p class="nfe-card-subtitle">
+            Selecione o período de apuração, escolha as empresas e envie declarações ou consulte os recibos já transmitidos.
+          </p>
+
+          <!-- Período: mês + ano -->
+          <div class="nfe-section">
+            <h3>Período de apuração</h3>
+            <div class="nfe-upload-form">
+              <label class="nfe-input-file-label">
+                <span>Mês:</span>
+                <select id="paMes" class="sn-select" required>
+                  <option value="">Selecione</option>
+                  <option value="01">01</option>
+                  <option value="02">02</option>
+                  <option value="03">03</option>
+                  <option value="04">04</option>
+                  <option value="05">05</option>
+                  <option value="06">06</option>
+                  <option value="07">07</option>
+                  <option value="08">08</option>
+                  <option value="09">09</option>
+                  <option value="10">10</option>
+                  <option value="11">11</option>
+                  <option value="12">12</option>
+                </select>
+              </label>
+
+              <label class="nfe-input-file-label">
+                <span>Ano:</span>
+                <select id="paAno" class="sn-select" required>
+                  <!-- preenchido via JS -->
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <hr class="nfe-divider" />
+
+          <!-- Empresas: dropdown com checkboxes + botão de cadastro -->
+          <div class="nfe-section">
+            <div class="nfe-upload-form">
+              <div class="nfe-input-file-label">
+                <div class="nfe-input-header-row">
+                  <span>Empresas:</span>
+                  <button type="button" id="openCompanyModal" class="btn btn-secondary btn-icon">+</button>
                 </div>
 
-                <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
+                <!-- Dropdown com checkboxes -->
+                <div class="multi-select" id="companiesMultiSelect">
+                  <div class="multi-select-control" id="companiesDropdown">
+                    <span id="companiesDropdownLabel">Selecione as empresas</span>
+                    <span class="multi-select-arrow">▼</span>
+                  </div>
+                  <div class="multi-select-options" id="companiesOptions">
+                    <!-- opções preenchidas via JS -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr class="nfe-divider" />
+
+          <!-- Ações -->
+          <div class="nfe-section">
+            <div class="nfe-upload-form">
+              <button type="button" id="btnEnviarDecl" class="btn btn-primary">
+                Enviar declarações
+              </button>
+
+              <button type="button" id="btnConsultarRecibos" class="btn btn-secondary">
+                Consultar últimos recibos
+              </button>
             </div>
 
-            <nav class="nfe-sidebar-menu">
-                <a href="/home.html" class="nfe-menu-item">
-                    <span class="icon">🏠</span>
-                    <span class="label">Início</span>
-                </a>
-                <a href="/home.html#fiscal" class="nfe-menu-item">
-                    <span class="icon">📁</span>
-                    <span class="label">Fiscal</span>
-                </a>
-                <a href="/nfe" class="nfe-menu-item">
-                    <span class="icon">🧾</span>
-                    <span class="label">Consulta NF-e</span>
-                </a>
-                <a href="/sn" class="nfe-menu-item active">
-                    <span class="icon">📄</span>
-                    <span class="label">Declaração SN</span>
-                </a>
-            </nav>
-        </aside>
+            <div id="snStatus" class="nfe-upload-message"></div>
+          </div>
+        </div>
 
-        <!-- CONTEÚDO PRINCIPAL -->
-        <main class="nfe-main">
-            <!-- Cabeçalho / Breadcrumb -->
-            <header class="nfe-header">
-                <div class="nfe-breadcrumb">Portal / Fiscal / Declaração SN</div>
-                <h1>Declaração Mensal – Simples Nacional</h1>
-                <p>Envie a declaração mensal sem movimento diretamente pelo Integra Contador.</p>
-            </header>
+        <!-- CARD RESUMO DE CONSUMO -->
+        <div class="nfe-card nfe-card-ext">
+          <h2>Resumo do consumo</h2>
+          <p class="nfe-card-subtitle">
+            Acompanhe as operações realizadas (declarações + consultas) e o valor total estimado.
+          </p>
+          <p id="consumoInfo">Nenhuma operação realizada.</p>
+        </div>
+      </section>
 
-            <!-- Linha principal -->
-            <section class="nfe-row">
-                <!-- CARD FORM -->
-                <div class="nfe-card nfe-card-upload">
-                    <h2>Enviar declaração</h2>
-                    <p class="nfe-card-subtitle">
-                        Informe o CNPJ e o período de apuração (AAAAMM) para enviar a declaração.
-                    </p>
+      <!-- Resultados -->
+      <section class="nfe-row">
+        <div class="nfe-card nfe-card-upload">
+          <h2>Resultado do processamento</h2>
+          <p class="nfe-card-subtitle">
+            Veja o status de cada empresa para o período selecionado, incluindo o link do recibo quando disponível.
+          </p>
+          <div class="nfe-table-wrapper">
+            <table id="snResultsTable" class="nfe-table">
+              <thead>
+                <tr>
+                  <th>CNPJ</th>
+                  <th>Razão Social</th>
+                  <th>Operação</th>
+                  <th>Status</th>
+                  <th>Mensagens</th>
+                  <th>Recibo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- preenchido via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
-                    <form id="snForm" class="nfe-upload-form">
-                        <label class="nfe-input-file-label">
-                            <span>CNPJ:</span>
-                            <input type="text" id="cnpj" maxlength="14" placeholder="00000000000100" required />
-                        </label>
+  <!-- MODAL DE CADASTRO DE EMPRESA -->
+  <div id="companyModal" class="modal hidden">
+    <div class="modal-overlay" id="companyModalOverlay"></div>
+    <div class="modal-content">
+      <h3>Cadastrar empresa</h3>
+      <form id="snCompanyForm">
+        <label class="nfe-input-file-label">
+          <span>CNPJ:</span>
+          <input type="text" id="cadCnpj" maxlength="14" placeholder="00000000000100" required />
+        </label>
 
-                        <label class="nfe-input-file-label">
-                            <span>Período de Apuração (AAAAMM):</span>
-                            <input type="text" id="pa" maxlength="6" placeholder="202501" required />
-                        </label>
+        <label class="nfe-input-file-label">
+          <span>Razão Social:</span>
+          <input type="text" id="cadRazao" maxlength="100" placeholder="Razão Social da empresa" required />
+        </label>
 
-                        <button type="submit" id="btnEnviarDecl" class="btn btn-primary">
-                            Enviar declaração
-                        </button>
-                    </form>
-
-                    <div id="snStatus" class="nfe-upload-message"></div>
-                </div>
-
-                <!-- CARD RESUMO DE CONSUMO -->
-                <div class="nfe-card nfe-card-ext">
-                    <h2>Resumo do consumo</h2>
-                    <p class="nfe-card-subtitle">
-                        Acompanhe quantas declarações foram enviadas no mês e o preço unitário atual.
-                    </p>
-                    <p id="consumoInfo">Nenhuma requisição enviada.</p>
-                </div>
-            </section>
-        </main>
+        <div class="modal-actions">
+          <button type="button" id="closeCompanyModal" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+      <div id="snCompanyMessage" class="nfe-upload-message"></div>
     </div>
+  </div>
 
-    <script>
-        // Toggle do sidebar (recolher/expandir)
-        document.addEventListener('DOMContentLoaded', function () {
-            var layout = document.querySelector('.nfe-layout');
-            var sidebarToggle = document.getElementById('sidebarToggle');
+  <script>
+    // Toggle sidebar
+    document.addEventListener('DOMContentLoaded', function () {
+      var layout = document.querySelector('.nfe-layout');
+      var sidebarToggle = document.getElementById('sidebarToggle');
 
-            if (layout && sidebarToggle) {
-                sidebarToggle.addEventListener('click', function () {
-                    layout.classList.toggle('collapsed');
-                });
+      if (layout && sidebarToggle) {
+        sidebarToggle.addEventListener('click', function () {
+          layout.classList.toggle('collapsed');
+        });
+      }
+    });
+
+    // Referências principais
+    const paMes = document.getElementById('paMes');
+    const paAno = document.getElementById('paAno');
+    const btnEnviarDecl = document.getElementById('btnEnviarDecl');
+    const btnConsultarRecibos = document.getElementById('btnConsultarRecibos');
+    const snStatus = document.getElementById('snStatus');
+    const consumoInfo = document.getElementById('consumoInfo');
+    const resultsTbody = document.querySelector('#snResultsTable tbody');
+
+    const companiesDropdown = document.getElementById('companiesDropdown');
+    const companiesDropdownLabel = document.getElementById('companiesDropdownLabel');
+    const companiesOptions = document.getElementById('companiesOptions');
+
+    const openCompanyModalBtn = document.getElementById('openCompanyModal');
+    const companyModal = document.getElementById('companyModal');
+    const companyModalOverlay = document.getElementById('companyModalOverlay');
+    const closeCompanyModalBtn = document.getElementById('closeCompanyModal');
+    const snCompanyForm = document.getElementById('snCompanyForm');
+    const snCompanyMessage = document.getElementById('snCompanyMessage');
+
+    let isSending = false;
+    let selectedCompanyIds = new Set();
+    let selectAllCompanies = false;
+
+    function setSending(flag) {
+      isSending = flag;
+      btnEnviarDecl.disabled = flag;
+      btnConsultarRecibos.disabled = flag;
+      btnEnviarDecl.textContent = flag ? 'Enviando...' : 'Enviar declarações';
+      btnConsultarRecibos.textContent = flag ? 'Consultando...' : 'Consultar últimos recibos';
+    }
+
+    // Preencher anos (por exemplo, de ano atual - 5 até ano atual + 1)
+    (function preencherAnos() {
+      const anoAtual = new Date().getFullYear();
+      const minAno = anoAtual - 5;
+      const maxAno = anoAtual + 1;
+      paAno.innerHTML = '<option value="">Selecione</option>';
+      for (let a = maxAno; a >= minAno; a--) {
+        const opt = document.createElement('option');
+        opt.value = String(a);
+        opt.textContent = String(a);
+        paAno.appendChild(opt);
+      }
+    })();
+
+    // Modal de cadastro
+    function openCompanyModal() {
+      snCompanyMessage.textContent = '';
+      document.getElementById('cadCnpj').value = '';
+      document.getElementById('cadRazao').value = '';
+      companyModal.classList.remove('hidden');
+    }
+
+    function closeCompanyModal() {
+      companyModal.classList.add('hidden');
+    }
+
+    openCompanyModalBtn.addEventListener('click', openCompanyModal);
+    companyModalOverlay.addEventListener('click', closeCompanyModal);
+    closeCompanyModalBtn.addEventListener('click', closeCompanyModal);
+
+    // Multi-select de empresas
+
+    function atualizarLabelEmpresas() {
+      if (selectAllCompanies) {
+        companiesDropdownLabel.textContent = 'Todas as empresas selecionadas';
+      } else if (selectedCompanyIds.size === 0) {
+        companiesDropdownLabel.textContent = 'Selecione as empresas';
+      } else if (selectedCompanyIds.size === 1) {
+        companiesDropdownLabel.textContent = '1 empresa selecionada';
+      } else {
+        companiesDropdownLabel.textContent = selectedCompanyIds.size + ' empresas selecionadas';
+      }
+    }
+
+    function toggleCompaniesOptions() {
+      companiesOptions.classList.toggle('open');
+    }
+
+    companiesDropdown.addEventListener('click', toggleCompaniesOptions);
+
+    document.addEventListener('click', function (e) {
+      if (!companiesOptions.contains(e.target) && !companiesDropdown.contains(e.target)) {
+        companiesOptions.classList.remove('open');
+      }
+    });
+
+    async function carregarEmpresas() {
+      try {
+        const resp = await fetch('/api/sn/companies');
+        if (!resp.ok) return;
+        const empresas = await resp.json();
+
+        companiesOptions.innerHTML = '';
+
+        // opção "Todos"
+        const labelAll = document.createElement('label');
+        labelAll.className = 'multi-select-option';
+        const checkAll = document.createElement('input');
+        checkAll.type = 'checkbox';
+        checkAll.value = 'all';
+        checkAll.addEventListener('change', function () {
+          selectAllCompanies = checkAll.checked;
+          selectedCompanyIds.clear();
+
+          const checks = companiesOptions.querySelectorAll('input[type="checkbox"]');
+          checks.forEach((c) => {
+            if (c === checkAll) return;
+            c.checked = selectAllCompanies;
+            if (selectAllCompanies) {
+              selectedCompanyIds.add(Number(c.value));
             }
+          });
+
+          atualizarLabelEmpresas();
         });
 
-        var snForm = document.getElementById('snForm');
-        var statusDiv = document.getElementById('snStatus');
-        var consumoInfo = document.getElementById('consumoInfo');
-        var btnEnviarDecl = document.getElementById('btnEnviarDecl');
+        labelAll.appendChild(checkAll);
+        labelAll.appendChild(document.createTextNode(' Todos'));
+        companiesOptions.appendChild(labelAll);
 
-        function setSending(isSending) {
-            if (!btnEnviarDecl) return;
-            if (isSending) {
-                btnEnviarDecl.disabled = true;
-                btnEnviarDecl.textContent = 'Enviando...';
+        // demais empresas
+        empresas.forEach((emp) => {
+          const lbl = document.createElement('label');
+          lbl.className = 'multi-select-option';
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.value = emp.id;
+          chk.addEventListener('change', function () {
+            const id = Number(chk.value);
+            if (chk.checked) {
+              selectedCompanyIds.add(id);
             } else {
-                btnEnviarDecl.disabled = false;
-                btnEnviarDecl.textContent = 'Enviar declaração';
+              selectedCompanyIds.delete(id);
             }
+            // se desmarcar alguma, desmarca "Todos"
+            if (!chk.checked && selectAllCompanies) {
+              selectAllCompanies = false;
+              checkAll.checked = false;
+            }
+            atualizarLabelEmpresas();
+          });
+
+          lbl.appendChild(chk);
+          lbl.appendChild(document.createTextNode(' ' + emp.razaoSocial + ' (' + emp.cnpj + ')'));
+          companiesOptions.appendChild(lbl);
+        });
+
+        atualizarLabelEmpresas();
+      } catch (e) {
+        console.error('Erro ao carregar empresas SN:', e);
+      }
+    }
+
+    // Cadastro de empresa (modal)
+    snCompanyForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      snCompanyMessage.textContent = '';
+      snCompanyMessage.style.color = '';
+
+      const cnpj = document.getElementById('cadCnpj').value.trim();
+      const razaoSocial = document.getElementById('cadRazao').value.trim();
+
+      if (!cnpj || !razaoSocial) {
+        snCompanyMessage.textContent = 'Preencha CNPJ e Razão Social.';
+        snCompanyMessage.style.color = 'red';
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/sn/companies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cnpj, razaoSocial }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          snCompanyMessage.textContent = data.error || 'Erro ao cadastrar empresa.';
+          snCompanyMessage.style.color = 'red';
+          return;
         }
 
-        snForm.addEventListener('submit', function (e) {
-            e.preventDefault();
+        snCompanyMessage.textContent = 'Empresa cadastrada com sucesso.';
+        snCompanyMessage.style.color = 'green';
 
-            var cnpj = document.getElementById('cnpj').value.trim();
-            var pa = document.getElementById('pa').value.trim();
+        // recarrega lista do dropdown
+        await carregarEmpresas();
+        atualizarLabelEmpresas();
+      } catch (e) {
+        console.error(e);
+        snCompanyMessage.textContent = 'Falha na comunicação com o servidor.';
+        snCompanyMessage.style.color = 'red';
+      }
+    });
 
-            if (!cnpj || !pa) {
-                statusDiv.textContent = 'Preencha CNPJ e período de apuração.';
-                return;
-            }
+    // Resumo de consumo
+    function atualizarResumoConsumo(resumo) {
+      if (!resumo) return;
+      const consumoAtual = resumo.consumoAtual || 0;
+      const totalDecl = resumo.totalDeclaracoes || 0;
+      const totalCons = resumo.totalConsultas || 0;
+      const totalSucesso = resumo.totalSucesso || 0;
+      const totalErro = resumo.totalErro || 0;
 
-            statusDiv.textContent = 'Enviando...';
-            setSending(true);
+      const precoUnitario = typeof resumo.precoUnitario === 'number'
+        ? resumo.precoUnitario.toFixed(2)
+        : '0,00';
 
-            fetch('/api/sn/declaration', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    cnpj: cnpj,
-                    pa: parseInt(pa, 10),
-                    tipoDeclaracao: 1,
-                    receitaInterna: 0,
-                    receitaExterna: 0,
-                    indicadorTransmissao: true,
-                    indicadorComparacao: false
-                })
-            })
-                .then(function (resp) { return resp.json().then(function (data) { return { ok: resp.ok, data: data }; }); })
-                .then(function (result) {
-                    var ok = result.ok;
-                    var data = result.data;
+      const valorTotal = typeof resumo.valorTotal === 'number'
+        ? resumo.valorTotal.toFixed(2)
+        : '0,00';
 
-                    if (ok) {
-                        var msg = 'Requisição enviada com status ' + data.status + '.';
-                        if (data.mensagens && data.mensagens.length) {
-                            msg += '\n\n' + data.mensagens.map(function (m) {
-                                return '[' + m.codigo + '] ' + m.texto;
-                            }).join('\n');
-                        }
-                        statusDiv.textContent = msg;
-                        if (typeof data.consumoAtual === 'number' && typeof data.precoUnitario === 'number') {
-                            consumoInfo.textContent =
-                                'Consumo atual: ' + data.consumoAtual +
-                                ' | Preço unitário: R$ ' + data.precoUnitario.toFixed(2);
-                        }
-                    } else {
-                        var msgErro = (data.error || 'Erro ao enviar declaração.');
+      consumoInfo.textContent =
+        'Operações: ' + consumoAtual +
+        ' (Declarações: ' + totalDecl +
+        ' | Consultas: ' + totalCons +
+        ') | Sucessos: ' + totalSucesso +
+        ' | Erros: ' + totalErro +
+        ' | Preço unitário atual: R$ ' + precoUnitario +
+        ' | Valor total estimado: R$ ' + valorTotal;
+    }
 
-                        if (data.status) {
-                            msgErro += '\nStatus HTTP: ' + data.status;
-                        }
+    async function carregarResumo() {
+      try {
+        const resp = await fetch('/api/sn/summary');
+        if (!resp.ok) return;
+        const resumo = await resp.json();
+        atualizarResumoConsumo(resumo);
+      } catch (e) {
+        console.error('Erro ao carregar resumo SN:', e);
+      }
+    }
 
-                        if (data.mensagens && data.mensagens.length) {
-                            msgErro += '\n\n' + data.mensagens.map(function (m) {
-                                return '[' + m.codigo + '] ' + m.texto;
-                            }).join('\n');
-                        }
+    // Utilitário para pegar período e empresas selecionadas
+    function getPeriodoEEmpresas() {
+      const mes = paMes.value;
+      const ano = paAno.value;
 
-                        statusDiv.textContent = msgErro;
-                    }
+      if (!mes || !ano) {
+        snStatus.textContent = 'Informe o mês e o ano da apuração.';
+        return null;
+      }
 
-                })
-                .catch(function () {
-                    statusDiv.textContent = 'Falha na comunicação com o servidor.';
-                })
-                .finally(function () {
-                    setSending(false);
-                });
+      if (!selectAllCompanies && selectedCompanyIds.size === 0) {
+        snStatus.textContent = 'Selecione pelo menos uma empresa.';
+        return null;
+      }
+
+      const pa = parseInt(String(ano) + String(mes).padStart(2, '0'), 10);
+
+      return {
+        pa,
+        all: selectAllCompanies,
+        companyIds: selectAllCompanies ? [] : Array.from(selectedCompanyIds),
+      };
+    }
+
+    function renderResultados(resultados) {
+      resultsTbody.innerHTML = '';
+      (resultados || []).forEach((r) => {
+        const tr = document.createElement('tr');
+
+        const tdCnpj = document.createElement('td');
+        tdCnpj.textContent = r.cnpj;
+
+        const tdRazao = document.createElement('td');
+        tdRazao.textContent = r.razaoSocial || '';
+
+        const tdOp = document.createElement('td');
+        tdOp.textContent = r.tipo === 'consulta' ? 'Consulta recibo' : 'Declaração';
+
+        const tdStatus = document.createElement('td');
+        tdStatus.textContent = r.sucesso ? 'Sucesso' : 'Erro';
+        tdStatus.style.color = r.sucesso ? 'green' : 'red';
+
+        const tdMsg = document.createElement('td');
+        if (Array.isArray(r.mensagens) && r.mensagens.length) {
+          tdMsg.textContent = r.mensagens
+            .map((m) => '[' + m.codigo + '] ' + m.texto)
+            .join(' | ');
+        } else if (r.error) {
+          tdMsg.textContent = r.error;
+        } else if (r.fromCache) {
+          tdMsg.textContent = 'Recibo obtido do cache.';
+        } else {
+          tdMsg.textContent = '-';
+        }
+
+        const tdRecibo = document.createElement('td');
+        if (r.receiptId && r.sucesso) {
+          const link = document.createElement('a');
+          link.href = '/api/sn/receipt/' + r.receiptId;
+          link.target = '_blank';
+          link.textContent = 'Abrir recibo';
+          tdRecibo.appendChild(link);
+        } else {
+          tdRecibo.textContent = '-';
+        }
+
+        tr.appendChild(tdCnpj);
+        tr.appendChild(tdRazao);
+        tr.appendChild(tdOp);
+        tr.appendChild(tdStatus);
+        tr.appendChild(tdMsg);
+        tr.appendChild(tdRecibo);
+
+        resultsTbody.appendChild(tr);
+      });
+    }
+
+    // Handlers: enviar declarações e consultar recibos
+    async function handleEnviarDeclaracoes() {
+      const params = getPeriodoEEmpresas();
+      if (!params) return;
+
+      setSending(true);
+      snStatus.textContent = 'Enviando declarações...';
+
+      try {
+        const resp = await fetch('/api/sn/declaration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pa: params.pa,
+            all: params.all,
+            companyIds: params.companyIds,
+            tipoDeclaracao: 1,
+            receitaInterna: 0,
+            receitaExterna: 0,
+            indicadorTransmissao: true,
+            indicadorComparacao: false
+          }),
         });
-    </script>
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          let msgErro = data.error || 'Erro ao enviar declarações.';
+          if (data.status) msgErro += ' (HTTP ' + data.status + ')';
+          snStatus.textContent = msgErro;
+          setSending(false);
+          return;
+        }
+
+        renderResultados(data.resultados);
+        snStatus.textContent = 'Declarações processadas com sucesso.';
+        if (data.resumoConsumo) {
+          atualizarResumoConsumo(data.resumoConsumo);
+        } else {
+          carregarResumo();
+        }
+      } catch (e) {
+        console.error(e);
+        snStatus.textContent = 'Falha na comunicação com o servidor.';
+      } finally {
+        setSending(false);
+      }
+    }
+
+    async function handleConsultarRecibos() {
+      const params = getPeriodoEEmpresas();
+      if (!params) return;
+
+      setSending(true);
+      snStatus.textContent = 'Consultando recibos...';
+
+      try {
+        const resp = await fetch('/api/sn/consult-last', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pa: params.pa,
+            all: params.all,
+            companyIds: params.companyIds,
+          }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          let msgErro = data.error || 'Erro ao consultar recibos.';
+          if (data.status) msgErro += ' (HTTP ' + data.status + ')';
+          snStatus.textContent = msgErro;
+          setSending(false);
+          return;
+        }
+
+        renderResultados(data.resultados);
+        snStatus.textContent = 'Consultas de recibo concluídas.';
+        if (data.resumoConsumo) {
+          atualizarResumoConsumo(data.resumoConsumo);
+        } else {
+          carregarResumo();
+        }
+      } catch (e) {
+        console.error(e);
+        snStatus.textContent = 'Falha na comunicação com o servidor.';
+      } finally {
+        setSending(false);
+      }
+    }
+
+    btnEnviarDecl.addEventListener('click', handleEnviarDeclaracoes);
+    btnConsultarRecibos.addEventListener('click', handleConsultarRecibos);
+
+    // Inicialização
+    carregarEmpresas();
+    carregarResumo();
+  </script>
 </body>
 
 </html>

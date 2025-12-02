@@ -870,3 +870,136 @@ body.nfe-body {
   }
 }
 
+/* Esconde qualquer elemento que tiver a classe .hidden */
+.hidden {
+  display: none !important;
+}
+/* Container do modal (ocupa a tela toda) */
+.modal {
+  position: fixed;
+  inset: 0;                    /* top:0; right:0; bottom:0; left:0 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;               /* fica acima dos cards */
+}
+
+/* Fundo escuro por trás do conteúdo */
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45); /* um cinza escuro translúcido */
+}
+
+/* Caixa branca do formulário */
+.modal-content {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.3);
+  max-width: 480px;
+  width: 100%;
+}
+
+/* Botões do rodapé do modal */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* ---------- MULTISELECT DE EMPRESAS (SN) ---------- */
+
+.multi-select {
+  position: relative;
+  width: 100%;
+}
+
+.multi-select-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.multi-select-control:hover {
+  background: #eef2ff;
+}
+
+.multi-select-arrow {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+/* A LISTA FICA ESCONDIDA POR PADRÃO */
+.multi-select-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+  max-height: 260px;
+  overflow-y: auto;
+  display: none;            /* <-- ESSENCIAL */
+  z-index: 30;
+}
+
+/* Quando tiver a classe .open, aparece */
+.multi-select-options.open {
+  display: block;
+}
+
+.multi-select-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.multi-select-option input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* ---------- SELECTS DE MÊS/ANO (SN) ---------- */
+
+.sn-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+
+  /* remove o estilo padrão do SO */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* “setinha” customizada à direita (opcional) */
+  background-image: linear-gradient(45deg, transparent 50%, #9ca3af 50%),
+    linear-gradient(135deg, #9ca3af 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.sn-select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  background: #eef2ff;
+}
