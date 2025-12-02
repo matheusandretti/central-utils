@@ -51,7 +51,8 @@
       <header class="nfe-header">
         <div class="nfe-breadcrumb">Portal / Fiscal / Declaração SN</div>
         <h1>Declaração Mensal – Simples Nacional</h1>
-        <p>Cadastre as empresas, selecione o período e envie declarações ou consulte os recibos via Integra Contador.</p>
+        <p>Cadastre as empresas, selecione o período e envie declarações ou consulte os recibos via Integra Contador.
+        </p>
       </header>
 
       <!-- Linha principal: filtros + resumo -->
@@ -60,7 +61,8 @@
         <div class="nfe-card nfe-card-upload">
           <h2>Empresas e período de apuração</h2>
           <p class="nfe-card-subtitle">
-            Selecione o período de apuração, escolha as empresas e envie declarações ou consulte os recibos já transmitidos.
+            Selecione o período de apuração, escolha as empresas e envie declarações ou consulte os recibos já
+            transmitidos.
           </p>
 
           <!-- Período: mês + ano -->
@@ -152,6 +154,11 @@
       <section class="nfe-row">
         <div class="nfe-card nfe-card-upload">
           <h2>Resultado do processamento</h2>
+          <div class="sn-actions-row">
+            <button type="button" id="btnDownloadTodosRecibos" class="btn btn-secondary" disabled>
+              Baixar todos os recibos
+            </button>
+          </div>
           <p class="nfe-card-subtitle">
             Veja o status de cada empresa para o período selecionado, incluindo o link do recibo quando disponível.
           </p>
@@ -238,6 +245,7 @@
     let isSending = false;
     let selectedCompanyIds = new Set();
     let selectAllCompanies = false;
+    let lastSnResults = null;
 
     function setSending(flag) {
       isSending = flag;
@@ -601,16 +609,31 @@
           let msgErro = data.error || 'Erro ao consultar recibos.';
           if (data.status) msgErro += ' (HTTP ' + data.status + ')';
           snStatus.textContent = msgErro;
-          setSending(false);
           return;
         }
 
+        // guarda o resultado da última consulta
+        lastSnResults = data;
+
+        // renderiza a tabela como você já fazia
         renderResultados(data.resultados);
         snStatus.textContent = 'Consultas de recibo concluídas.';
+
+        // atualiza resumo
         if (data.resumoConsumo) {
           atualizarResumoConsumo(data.resumoConsumo);
         } else {
           carregarResumo();
+        }
+
+        // habilita ou desabilita o botão "Baixar todos os recibos"
+        const btnDownloadTodos = document.getElementById('btnDownloadTodosRecibos');
+        if (btnDownloadTodos) {
+          const temAlgumRecibo =
+            Array.isArray(data.resultados) &&
+            data.resultados.some((r) => r.receiptId);
+
+          btnDownloadTodos.disabled = !temAlgumRecibo;
         }
       } catch (e) {
         console.error(e);
@@ -620,12 +643,78 @@
       }
     }
 
+
     btnEnviarDecl.addEventListener('click', handleEnviarDeclaracoes);
     btnConsultarRecibos.addEventListener('click', handleConsultarRecibos);
 
     // Inicialização
     carregarEmpresas();
     carregarResumo();
+
+    const btnDownloadTodos = document.getElementById('btnDownloadTodosRecibos');
+
+    if (btnDownloadTodos) {
+      btnDownloadTodos.addEventListener('click', async function () {
+        if (
+          !lastSnResults ||
+          !Array.isArray(lastSnResults.resultados)
+        ) {
+          alert('Nenhum resultado de consulta disponível.');
+          return;
+        }
+
+        const receiptIds = lastSnResults.resultados
+          .filter((r) => r.receiptId)
+          .map((r) => r.receiptId);
+
+        if (receiptIds.length === 0) {
+          alert('Nenhum recibo disponível para download.');
+          return;
+        }
+
+        try {
+          btnDownloadTodos.disabled = true;
+          btnDownloadTodos.textContent = 'Gerando ZIP...';
+
+          const resp = await fetch('/api/sn/receipts/batch-download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ receiptIds }),
+          });
+
+          if (!resp.ok) {
+            let err;
+            try {
+              err = await resp.json();
+            } catch (_) {
+              err = {};
+            }
+            console.error('Erro ao baixar ZIP:', err);
+            alert('Erro ao gerar o arquivo ZIP de recibos.');
+            return;
+          }
+
+          const arrayBuffer = await resp.arrayBuffer();
+          const blob = new Blob([arrayBuffer], { type: 'application/zip' });
+
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'recibos-sn.zip';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error(e);
+          alert('Erro ao baixar os recibos.');
+        } finally {
+          btnDownloadTodos.disabled = false;
+          btnDownloadTodos.textContent = 'Baixar todos os recibos';
+        }
+      });
+    }
+
   </script>
 </body>
 

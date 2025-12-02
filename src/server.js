@@ -9,6 +9,7 @@ require('dotenv').config();
 const axios = require('axios'); // para chamar a API Integra Contador
 const { autenticarSerpro } = require("./serpro-auth");
 const { Pool } = require('pg'); // << ADICIONE ESTA LINHA
+const archiver = require('archiver');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -347,6 +348,28 @@ async function dbGetReceiptById(id) {
   return result.rows[0] || null;
 }
 
+async function dbGetReceiptsByIds(ids) {
+  if (!ids || ids.length === 0) return [];
+
+  const result = await pool.query(
+    `
+      SELECT
+        r.id,
+        r.company_id,
+        r.pa,
+        r.pdf,
+        c.cnpj,
+        c.razao_social
+      FROM sn_receipts r
+      JOIN sn_companies c ON c.id = r.company_id
+      WHERE r.id = ANY($1::int[])
+    `,
+    [ids]
+  );
+
+  return result.rows;
+}
+
 // ---------- FUNÇÕES AUXILIARES: RESUMO (JSON) ----------
 
 function loadSnSummary() {
@@ -489,18 +512,78 @@ app.get('/api/sn/summary', (req, res) => {
 
 // download de recibo em PDF
 app.get('/api/sn/receipt/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).send('ID inválido.');
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).send('ID inválido');
 
-    const row = await dbGetReceiptById(id);
-    if (!row) return res.status(404).send('Recibo não encontrado.');
+  try {
+    const receipt = await dbGetReceiptById(id);
+    if (!receipt) return res.status(404).send('Recibo não encontrado');
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.send(row.pdf);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="recibo-sn-${receipt.cnpj || 'cnpj'}-${receipt.pa}.pdf"`
+    );
+    res.send(receipt.pdf); // Buffer do BYTEA
   } catch (err) {
-    console.error('Erro ao buscar recibo SN:', err);
-    res.status(500).send('Erro ao buscar recibo.');
+    console.error('Erro ao buscar recibo:', err);
+    res.status(500).send('Erro ao buscar recibo');
+  }
+});
+
+// ---------- ROTA: DOWNLOAD ZIP COM VÁRIOS RECIBOS ----------
+// ---------- ROTA: DOWNLOAD ZIP COM VÁRIOS RECIBOS ----------
+app.post('/api/sn/receipts/batch-download', async (req, res) => {
+  try {
+    const { receiptIds } = req.body;
+
+    if (!Array.isArray(receiptIds) || receiptIds.length === 0) {
+      return res
+        .status(400)
+        .json({ error: 'Nenhum recibo selecionado para download.' });
+    }
+
+    const idsNum = receiptIds.map(Number).filter((n) => !isNaN(n));
+
+    const receipts = await dbGetReceiptsByIds(idsNum);
+
+    if (!receipts || receipts.length === 0) {
+      return res.status(404).json({ error: 'Recibos não encontrados.' });
+    }
+
+    const nomeZip = `recibos-sn-${Date.now()}.zip`;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${nomeZip}"`
+    );
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    archive.on('error', (err) => {
+      console.error('Erro ao gerar ZIP:', err);
+      if (!res.headersSent) {
+        res.status(500).end();
+      }
+    });
+
+    archive.pipe(res);
+
+    for (const r of receipts) {
+      const cnpj = (r.cnpj || '').replace(/\D/g, '') || `company${r.company_id}`;
+      const paStr = String(r.pa);
+      const filename = `RECIBO-${cnpj}-${paStr}.pdf`;
+
+      archive.append(r.pdf, { name: filename });
+    }
+
+    archive.finalize();
+  } catch (err) {
+    console.error('Erro geral no batch-download de recibos SN:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Erro ao gerar ZIP de recibos.' });
+    }
   }
 });
 
@@ -841,7 +924,6 @@ app.post('/api/sn/consult-last', async (req, res) => {
         if (receiptRow) {
           fromCache = true;
           receiptId = receiptRow.id;
-          registrarSnResultado(true, 'consulta');
         } else {
           // 4) Monta payload conforme doc (CONSULTIMADECREC14)
           const payload = {
