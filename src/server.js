@@ -40,6 +40,16 @@ const upload = multer({
   dest: path.join(__dirname, '..', 'uploads'),
 });
 
+// Próximo de outras configurações, usando o mesmo DATA_DIR se já existir
+const uploadsDir = path.join(DATA_DIR, 'uploads', 'separador-ferias');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const uploadSeparadorFerias = multer({
+  dest: uploadsDir,
+});
+
 // ---------- MIDDLEWARES GERAIS ----------
 
 // CORS liberado para a extensão (Chrome/Firefox)
@@ -1104,3 +1114,65 @@ app.post('/api/sn/consult-last', async (req, res) => {
       .json({ error: err.message || 'Erro ao consultar recibos.' });
   }
 });
+
+// --- Nova página: separador-pdf-relatorio-de-ferias ---
+app.get('/separador-pdf-relatorio-de-ferias', (req, res) => {
+  res.sendFile(path.join(publicDir, 'separador-pdf-relatorio-de-ferias.html'));
+});
+
+// --- API da ferramenta separador-pdf-relatorio-de-ferias ---
+app.post(
+  '/api/separador-pdf-relatorio-de-ferias/processar',
+  uploadSeparadorFerias.single('arquivoPdf'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo PDF enviado.' });
+      }
+
+      const competencia = (req.body.competencia || '').trim();
+      if (!competencia) {
+        return res.status(400).json({ error: 'Competência não informada.' });
+      }
+
+      const inputPdfPath = req.file.path;
+
+      // Chamada ao backend Python (FastAPI)
+      const pyUrl =
+        process.env.SEPARADOR_FERIAS_API_URL ||
+        'http://localhost:8001/api/separador-pdf-relatorio-de-ferias/processar';
+
+      const pyResp = await axios.post(pyUrl, {
+        input_pdf_path: inputPdfPath,
+        competencia,
+      });
+
+      if (!pyResp.data || !pyResp.data.ok || !pyResp.data.zip_path) {
+        console.error('Resposta inesperada do backend Python:', pyResp.data);
+        return res.status(500).json({ error: 'Erro ao gerar ZIP no backend Python.' });
+      }
+
+      const zipPath = pyResp.data.zip_path;
+
+      // Stream do ZIP para o navegador
+      if (!fs.existsSync(zipPath)) {
+        return res.status(500).json({ error: 'Arquivo ZIP não encontrado após processamento.' });
+      }
+
+      const zipFilename = path.basename(zipPath);
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+
+      const stream = fs.createReadStream(zipPath);
+      stream.on('error', (err) => {
+        console.error('Erro ao ler ZIP gerado:', err);
+        res.status(500).end('Erro ao enviar ZIP.');
+      });
+
+      stream.pipe(res);
+    } catch (err) {
+      console.error('Erro em /api/separador-pdf-relatorio-de-ferias/processar:', err);
+      return res.status(500).json({ error: 'Erro ao processar requisição.' });
+    }
+  }
+);

@@ -1,0 +1,111 @@
+<!-- arquivo sugerido: public/separador-pdf-relatorio-de-ferias.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>PORTAL WILSON LOPES - Separador PDF Relatório de Férias</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body class="app-body nfe-body">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <nav class="nfe-sidebar-menu">
+        <a href="/home.html" class="nfe-menu-item">
+          <span class="icon">🏠</span>
+          <span class="label">Início</span>
+        </a>
+        <a href="/home.html#pessoal" class="nfe-menu-item">
+          <span class="icon">🙂</span>
+          <span class="label">Pessoal</span>
+        </a>
+        <a href="/separador-pdf-relatorio-de-ferias" class="nfe-menu-item active">
+          <span class="icon">🧾</span>
+          <span class="label">Relatório de Férias</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Pessoal / Separador Relatório de Férias</div>
+        <h1>Separador PDF – Relatório de Férias</h1>
+        <p>
+          Envie um PDF de relatório de férias contendo várias empresas e receba um ZIP com um PDF separado por empresa.
+        </p>
+      </header>
+
+      <!-- CARD FORMULÁRIO -->
+      <section class="nfe-card">
+        <div class="nfe-card-header">
+          <h2>Upload do relatório e parâmetros</h2>
+        </div>
+        <p class="nfe-card-subtitle">
+          Selecione o PDF de “Relatório de Férias” agrupado, informe a competência e clique em “Processar e baixar ZIP”.
+        </p>
+
+        <form id="form-separador-ferias" class="nfe-upload-form">
+          <label class="nfe-input-file-label" for="arquivoPdf">
+            <span>Selecionar PDF de Relatório de Férias...</span>
+            <input type="file" id="arquivoPdf" name="arquivoPdf" accept="application/pdf" required />
+          </label>
+
+          <label class="nfe-input-file-label" for="competencia">
+            <span>Competência (ex.: 112025):</span>
+            <input
+              type="text"
+              id="competencia"
+              name="competencia"
+              placeholder="112025"
+              maxlength="6"
+              required
+            />
+          </label>
+
+          <button type="submit" id="btnProcessar" class="btn btn-primary">
+            Processar e baixar ZIP
+          </button>
+        </form>
+
+        <div id="statusMensagem" class="nfe-upload-message"></div>
+      </section>
+
+      <!-- CARD LOG/INSTRUÇÕES -->
+      <section class="nfe-card">
+        <div class="nfe-card-header">
+          <h2>Como funciona</h2>
+        </div>
+        <p class="nfe-card-subtitle">
+          O robô lê o PDF página a página, identifica o nome da empresa no topo da página e agrupa as páginas de cada
+          empresa em um PDF separado, gerando um único arquivo ZIP com todos os PDFs.:contentReference[oaicite:7]{index=7}
+        </p>
+        <ul>
+          <li>O PDF deve ser o relatório de férias gerado pelo sistema de folha, com o nome da empresa no topo.</li>
+          <li>O campo de competência será usado para compor o nome dos arquivos, ex.: <code>EMPRESA 112025.pdf</code>.:contentReference[oaicite:8]{index=8}</li>
+          <li>Após o processamento, o download do arquivo ZIP é iniciado automaticamente no navegador.</li>
+        </ul>
+
+        <pre id="logArea" class="nfe-upload-message"></pre>
+      </section>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/separador-pdf-relatorio-de-ferias.js"></script>
+</body>
+</html>
