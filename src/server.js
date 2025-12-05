@@ -38,6 +38,7 @@ const io = new Server(server);
 
 const upload = multer({
   dest: path.join(__dirname, '..', 'uploads'),
+  storage: multer.memoryStorage()
 });
 
 // Próximo de outras configurações, usando o mesmo DATA_DIR se já existir
@@ -1173,6 +1174,87 @@ app.post(
     } catch (err) {
       console.error('Erro em /api/separador-pdf-relatorio-de-ferias/processar:', err);
       return res.status(500).json({ error: 'Erro ao processar requisição.' });
+    }
+  }
+);
+
+// Página: Separador Holerites por Empresa
+app.get('/separador-holerites-por-empresa', (req, res) => {
+  res.sendFile(path.join(publicDir, 'separador-holerites-por-empresa.html'));
+});
+
+// API: Separador de Holerites por Empresa (chama serviço FastAPI em Python)
+app.post(
+  '/api/separador-holerites-por-empresa',
+  upload.single('pdf'),
+  async (req, res) => {
+    try {
+      const file = req.file;
+      const { competencia } = req.body;
+
+      if (!file) {
+        return res.status(400).json({ error: 'Arquivo PDF não enviado.' });
+      }
+
+      if (!competencia) {
+        return res.status(400).json({ error: 'Competência é obrigatória.' });
+      }
+
+      // Monta form-data para enviar ao serviço Python
+      const FormData = require('form-data');
+      const formData = new FormData();
+      formData.append('pdf', file.buffer, {
+        filename: file.originalname,
+        contentType: file.mimetype || 'application/pdf',
+      });
+      formData.append('competencia', competencia);
+
+      // URL do serviço Python (ajuste se usar outra porta/host)
+      const pythonUrl = process.env.HOLERITES_SERVICE_URL ||
+        'http://127.0.0.1:8001/processar-holerites-por-empresa';
+
+      const response = await axios.post(pythonUrl, formData, {
+        headers: {
+          ...formData.getHeaders(),
+        },
+        responseType: 'stream',
+      });
+
+      // Repassa o ZIP (stream) para o cliente
+      res.setHeader(
+        'Content-Disposition',
+        response.headers['content-disposition'] ||
+          'attachment; filename="holerites_empresas.zip"'
+      );
+      res.setHeader(
+        'Content-Type',
+        response.headers['content-type'] || 'application/zip'
+      );
+
+      response.data.pipe(res);
+    } catch (err) {
+      console.error('Erro na API /api/separador-holerites-por-empresa:', err);
+
+      // Se veio um erro HTTP do Python, tenta repassar mensagem
+      if (err.response && err.response.data) {
+        let errorMsg = 'Erro ao processar o PDF.';
+        try {
+          // caso a resposta do Python seja JSON {detail: "..."} ou {error: "..."}
+          if (typeof err.response.data === 'string') {
+            errorMsg = err.response.data;
+          } else if (err.response.data.detail) {
+            errorMsg = err.response.data.detail;
+          } else if (err.response.data.error) {
+            errorMsg = err.response.data.error;
+          }
+        } catch (_) {}
+
+        return res.status(err.response.status || 500).json({ error: errorMsg });
+      }
+
+      return res
+        .status(500)
+        .json({ error: 'Erro interno ao chamar o serviço de holerites.' });
     }
   }
 );

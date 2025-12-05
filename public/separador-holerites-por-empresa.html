@@ -1,0 +1,131 @@
+<!-- arquivo sugerido: public/separador-holerites-por-empresa.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PORTAL WILSON LOPES - Separador Holerites por Empresa</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="app-body nfe-body">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <nav class="nfe-sidebar-menu">
+        <a href="/home.html" class="nfe-menu-item">
+          <span class="icon">🏠</span>
+          <span class="label">Início</span>
+        </a>
+        <a href="/home.html#pessoal" class="nfe-menu-item">
+          <span class="icon">🙂</span>
+          <span class="label">Pessoal</span>
+        </a>
+        <a href="/separador-holerites-por-empresa" class="nfe-menu-item active">
+          <span class="icon">🧾</span>
+          <span class="label">Separador Holerites</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <!-- Cabeçalho / Breadcrumb -->
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Pessoal / Separador Holerites</div>
+        <h1>Separador de Holerites por Empresa</h1>
+        <p>
+          Envie um PDF contendo holerites/folhas de várias empresas e receba um ZIP
+          com um PDF separado para cada empresa.
+        </p>
+      </header>
+
+      <!-- CARD PRINCIPAL: Upload + parâmetros -->
+      <section class="nfe-card nfe-card-upload">
+        <h2>Upload do PDF e parâmetros</h2>
+        <p class="nfe-card-subtitle">
+          Selecione o PDF com as folhas/holerites de múltiplas empresas e informe a competência
+          que será usada na nomeação dos arquivos gerados (ex.: 102025).
+        </p>
+
+        <form id="holeritesForm" class="nfe-upload-form">
+          <!-- Upload do PDF -->
+          <label for="pdfInput" class="nfe-input-file-label">
+            <span>Selecionar PDF de holerites...</span>
+            <input type="file" id="pdfInput" name="pdf" accept="application/pdf" required />
+          </label>
+
+          <!-- Competência -->
+          <label class="nfe-input-file-label">
+            <span>Competência:</span>
+            <input
+              type="text"
+              id="competenciaInput"
+              name="competencia"
+              maxlength="6"
+              placeholder="MMYYYY ou 102025"
+              required
+              style="min-width: 120px; border:none; background:transparent; outline:none;"
+            />
+          </label>
+
+          <!-- Botão -->
+          <button type="submit" id="btnProcessarHolerites" class="btn btn-primary">
+            Processar e gerar ZIP
+          </button>
+        </form>
+
+        <div id="holeritesStatus" class="nfe-upload-message"></div>
+      </section>
+
+      <!-- CARD: Resultado / download -->
+      <section class="nfe-card nfe-card-dashboard">
+        <div class="nfe-card-header">
+          <div>
+            <h2>Resultado do processamento</h2>
+            <p class="nfe-card-subtitle">
+              Após o processamento, o arquivo ZIP com os PDFs separados por empresa ficará
+              disponível para download abaixo.
+            </p>
+          </div>
+        </div>
+
+        <div id="holeritesResultado" class="nfe-upload-message">
+          Nenhum processamento realizado ainda.
+        </div>
+
+        <div id="holeritesDownloadArea" style="margin-top: 16px; display: none;">
+          <button id="btnDownloadZipHolerites" class="btn btn-secondary">
+            Baixar arquivo ZIP gerado
+          </button>
+        </div>
+      </section>
+
+      <!-- CARD: Log simples -->
+      <section class="nfe-card nfe-card-table">
+        <div class="nfe-card-header">
+          <h2>Log de processamento</h2>
+        </div>
+        <div class="nfe-table-wrapper">
+          <pre id="holeritesLog" style="max-height: 260px; overflow: auto; font-size: 12px;"></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script> <!-- opcional, mas mantido para padrão -->
+  <script src="/js/separador-holerites-por-empresa.js"></script>
+</body>
+</html>
