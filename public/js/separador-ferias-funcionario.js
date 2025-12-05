@@ -1,6 +1,11 @@
-// arquivo sugerido: public/js/separador-ferias-funcionario.js
+// public/js/separador-ferias-funcionario.js
 
 document.addEventListener('DOMContentLoaded', function () {
+  // Inicializa a sidebar com a página atual
+  if (typeof inicializarSidebar === 'function') {
+    inicializarSidebar('ferias-funcionario');
+  }
+
   const form = document.getElementById('feriasForm');
   const pdfInput = document.getElementById('pdfInput');
   const statusEl = document.getElementById('feriasStatus');
@@ -13,6 +18,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const btnDownloadZip = document.getElementById('btnDownloadZipFerias');
 
   const btnProcessar = document.getElementById('btnProcessarFerias');
+
+  if (!form || !pdfInput || !statusEl) {
+    return;
+  }
 
   function setLoading(isLoading) {
     if (!btnProcessar) return;

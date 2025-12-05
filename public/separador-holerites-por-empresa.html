@@ -1,12 +1,14 @@
 <!-- arquivo sugerido: public/separador-holerites-por-empresa.html -->
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PORTAL WILSON LOPES - Separador Holerites por Empresa</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body class="app-body nfe-body">
   <div class="nfe-layout">
     <!-- SIDEBAR -->
@@ -24,20 +26,8 @@
         </button>
       </div>
 
-      <nav class="nfe-sidebar-menu">
-        <a href="/home.html" class="nfe-menu-item">
-          <span class="icon">🏠</span>
-          <span class="label">Início</span>
-        </a>
-        <a href="/home.html#pessoal" class="nfe-menu-item">
-          <span class="icon">🙂</span>
-          <span class="label">Pessoal</span>
-        </a>
-        <a href="/separador-holerites-por-empresa" class="nfe-menu-item active">
-          <span class="icon">🧾</span>
-          <span class="label">Separador Holerites</span>
-        </a>
-      </nav>
+      <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+
     </aside>
 
     <!-- CONTEÚDO PRINCIPAL -->
@@ -70,15 +60,8 @@
           <!-- Competência -->
           <label class="nfe-input-file-label">
             <span>Competência:</span>
-            <input
-              type="text"
-              id="competenciaInput"
-              name="competencia"
-              maxlength="6"
-              placeholder="MMYYYY ou 102025"
-              required
-              style="min-width: 120px; border:none; background:transparent; outline:none;"
-            />
+            <input type="text" id="competenciaInput" name="competencia" maxlength="6" placeholder="MMYYYY ou 102025"
+              required style="min-width: 120px; border:none; background:transparent; outline:none;" />
           </label>
 
           <!-- Botão -->
@@ -126,6 +109,8 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script> <!-- opcional, mas mantido para padrão -->
+  <script src="/js/sidebar.js"></script>
   <script src="/js/separador-holerites-por-empresa.js"></script>
 </body>
+
 </html>

@@ -1,20 +1,13 @@
-// arquivo sugerido: public/js/separador-holerites-por-empresa.js
+// public/js/separador-holerites-por-empresa.js
 
 document.addEventListener('DOMContentLoaded', () => {
-  inicializarSidebarToggle();
+  // Inicializa a sidebar com o ID desta página no MENU_CONFIG (sidebar.js)
+  if (typeof inicializarSidebar === 'function') {
+    inicializarSidebar('holerites-empresa');
+  }
+
   inicializarSeparadorHolerites();
 });
-
-function inicializarSidebarToggle() {
-  const layout = document.querySelector('.nfe-layout');
-  const sidebarToggle = document.getElementById('sidebarToggle');
-
-  if (layout && sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => {
-      layout.classList.toggle('collapsed');
-    });
-  }
-}
 
 function inicializarSeparadorHolerites() {
   const form = document.getElementById('holeritesForm');

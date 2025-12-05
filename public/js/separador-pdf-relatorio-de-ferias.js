@@ -1,18 +1,15 @@
-// arquivo sugerido: public/js/separador-pdf-relatorio-de-ferias.js
+// public/js/separador-pdf-relatorio-de-ferias.js
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Inicializa a sidebar com a página atual (ID definido no MENU_CONFIG de sidebar.js)
+  if (typeof inicializarSidebar === 'function') {
+    inicializarSidebar('relatorio-ferias');
+  }
+
   inicializarPaginaSeparadorFerias();
 });
 
 function inicializarPaginaSeparadorFerias() {
-  const layout = document.querySelector('.nfe-layout');
-  const sidebarToggle = document.getElementById('sidebarToggle');
-  if (layout && sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => {
-      layout.classList.toggle('collapsed');
-    });
-  }
-
   const form = document.getElementById('form-separador-ferias');
   if (form) {
     form.addEventListener('submit', handleSubmitSeparadorFerias);

@@ -534,6 +534,78 @@ body.nfe-body {
   color: #fff;
 }
 
+/* ===== Sidebar em grupos (departamentos) ===== */
+
+/* ===== Sidebar em grupos (departamentos) ===== */
+
+.nfe-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nfe-menu-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: rgba(249, 250, 251, 0.85);
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.nfe-menu-group-header .icon {
+  font-size: 16px;
+}
+
+.nfe-menu-group-header:hover {
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.nfe-menu-group-header .chevron {
+  margin-left: auto;
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+
+.nfe-menu-group.open .nfe-menu-group-header .chevron {
+  transform: rotate(90deg);
+}
+
+.nfe-menu-subitems {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 8px;
+}
+
+.nfe-menu-group.open .nfe-menu-subitems {
+  display: flex;
+}
+
+/* itens filhos um pouco menores */
+.nfe-menu-subitem {
+  font-size: 13px;
+}
+
+/* quando a sidebar está recolhida */
+.nfe-layout.collapsed .nfe-menu-group-header .label {
+  display: none;
+}
+
+.nfe-layout.collapsed .nfe-menu-group-header .chevron {
+  display: none;
+}
+
+.nfe-layout.collapsed .nfe-menu-subitems {
+  display: none !important;
+}
+
 /* MAIN */
 
 .nfe-main {

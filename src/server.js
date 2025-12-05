@@ -41,9 +41,14 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+const MAIN_UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(MAIN_UPLOAD_DIR)) {
+  fs.mkdirSync(MAIN_UPLOAD_DIR, { recursive: true });
+}
+
 const upload = multer({
-  dest: path.join(__dirname, '..', 'uploads'),
-  storage: multer.memoryStorage()
+  dest: MAIN_UPLOAD_DIR,
+  storage: multer.memoryStorage(),
 });
 
 // Próximo de outras configurações, usando o mesmo DATA_DIR se já existir
@@ -184,13 +189,30 @@ app.post('/api/clear-errors', (req, res) => {
 
 
 // endpoint de upload do arquivo com chaves
+// endpoint de upload do arquivo com chaves
 app.post('/upload', upload.single('file'), async (req, res) => {
+  let tempFilePath = null;
+
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Arquivo não enviado' });
     }
 
-    const keys = parseFileToKeys(req.file.path, req.file.originalname);
+    // garante que a pasta de uploads exista (já foi criada lá em cima, mas por segurança)
+    if (!fs.existsSync(MAIN_UPLOAD_DIR)) {
+      fs.mkdirSync(MAIN_UPLOAD_DIR, { recursive: true });
+    }
+
+    // cria um arquivo temporário a partir do buffer em memória (memoryStorage)
+    tempFilePath = path.join(
+      MAIN_UPLOAD_DIR,
+      `${Date.now()}-${req.file.originalname}`
+    );
+
+    fs.writeFileSync(tempFilePath, req.file.buffer);
+
+    // agora o parser continua igual, baseado em caminho de arquivo
+    const keys = parseFileToKeys(tempFilePath, req.file.originalname);
     const createdJobs = createJobsFromKeys(keys);
 
     // emitir atualização da fila para todos conectados
@@ -206,6 +228,18 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error('Erro ao processar upload:', err);
     return res.status(500).json({ error: 'Erro ao processar arquivo' });
+  } finally {
+    // tenta apagar o arquivo temporário, se foi criado
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlink(tempFilePath, (unlinkErr) => {
+        if (unlinkErr) {
+          console.error(
+            'Não foi possível apagar arquivo temporário de upload:',
+            unlinkErr
+          );
+        }
+      });
+    }
   }
 });
 

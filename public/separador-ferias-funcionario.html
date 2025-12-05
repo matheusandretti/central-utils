@@ -1,6 +1,7 @@
 <!-- arquivo sugerido: public/separador-ferias-funcionario.html -->
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +9,7 @@
   <link rel="stylesheet" href="/styles.css" />
   <script src="/socket.io/socket.io.js"></script>
 </head>
+
 <body class="app-body nfe-body">
   <div class="nfe-layout">
     <!-- SIDEBAR -->
@@ -25,20 +27,8 @@
         </button>
       </div>
 
-      <nav class="nfe-sidebar-menu">
-        <a href="/home.html" class="nfe-menu-item">
-          <span class="icon">🏠</span>
-          <span class="label">Início</span>
-        </a>
-        <a href="/home.html#pessoal" class="nfe-menu-item">
-          <span class="icon">🙂</span>
-          <span class="label">Pessoal</span>
-        </a>
-        <a href="/separador-ferias-funcionario" class="nfe-menu-item active">
-          <span class="icon">🏖️</span>
-          <span class="label">Férias por Funcionário</span>
-        </a>
-      </nav>
+      <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+
     </aside>
 
     <!-- CONTEÚDO PRINCIPAL -->
@@ -59,7 +49,8 @@
           <div>
             <h2>Upload do PDF de Férias</h2>
             <p class="nfe-card-subtitle">
-              Selecione o PDF de férias agrupadas (recibo + aviso para vários funcionários) que será dividido por funcionário.
+              Selecione o PDF de férias agrupadas (recibo + aviso para vários funcionários) que será dividido por
+              funcionário.
             </p>
           </div>
         </div>
@@ -132,20 +123,8 @@
     </main>
   </div>
 
-  <script>
-    // Toggle sidebar (mesmo padrão de nfe/sn)
-    document.addEventListener('DOMContentLoaded', function () {
-      var layout = document.querySelector('.nfe-layout');
-      var sidebarToggle = document.getElementById('sidebarToggle');
-
-      if (layout && sidebarToggle) {
-        sidebarToggle.addEventListener('click', function () {
-          layout.classList.toggle('collapsed');
-        });
-      }
-    });
-  </script>
-
+  <script src="/js/sidebar.js"></script>
   <script src="/js/separador-ferias-funcionario.js"></script>
 </body>
+
 </html>
