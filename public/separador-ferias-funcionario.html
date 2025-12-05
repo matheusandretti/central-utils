@@ -1,0 +1,151 @@
+<!-- arquivo sugerido: public/separador-ferias-funcionario.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PORTAL WILSON LOPES - Separador Férias por Funcionário</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="app-body nfe-body">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <nav class="nfe-sidebar-menu">
+        <a href="/home.html" class="nfe-menu-item">
+          <span class="icon">🏠</span>
+          <span class="label">Início</span>
+        </a>
+        <a href="/home.html#pessoal" class="nfe-menu-item">
+          <span class="icon">🙂</span>
+          <span class="label">Pessoal</span>
+        </a>
+        <a href="/separador-ferias-funcionario" class="nfe-menu-item active">
+          <span class="icon">🏖️</span>
+          <span class="label">Férias por Funcionário</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <!-- Cabeçalho / Breadcrumb -->
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Pessoal / Férias por Funcionário</div>
+        <h1>Separador de Férias por Funcionário</h1>
+        <p>
+          Envie um PDF de férias contendo vários funcionários de uma mesma empresa e receba um ZIP com um PDF
+          separado para cada colaborador.
+        </p>
+      </header>
+
+      <!-- CARD DE UPLOAD / CONTROLE -->
+      <section class="nfe-card nfe-card-upload">
+        <div class="nfe-card-header">
+          <div>
+            <h2>Upload do PDF de Férias</h2>
+            <p class="nfe-card-subtitle">
+              Selecione o PDF de férias agrupadas (recibo + aviso para vários funcionários) que será dividido por funcionário.
+            </p>
+          </div>
+        </div>
+
+        <form id="feriasForm" class="nfe-upload-form">
+          <label for="pdfInput" class="nfe-input-file-label">
+            <span>Selecionar PDF de férias...</span>
+            <input type="file" id="pdfInput" name="file" accept="application/pdf" required />
+          </label>
+
+          <button type="submit" id="btnProcessarFerias" class="btn btn-primary">
+            Processar PDF
+          </button>
+        </form>
+
+        <div id="feriasStatus" class="nfe-upload-message"></div>
+      </section>
+
+      <!-- CARD DE RESULTADO -->
+      <section id="feriasResultadoCard" class="nfe-card" style="display: none;">
+        <div class="nfe-card-header nfe-card-header-with-actions">
+          <div>
+            <h2>Resultado do processamento</h2>
+            <p class="nfe-card-subtitle">
+              Veja o resumo da empresa e o total de funcionários encontrados no PDF de férias.
+            </p>
+          </div>
+          <div>
+            <a id="btnDownloadZipFerias" href="#" class="btn btn-secondary" download>
+              Baixar ZIP com PDFs
+            </a>
+          </div>
+        </div>
+
+        <div class="nfe-metrics">
+          <div class="nfe-metric">
+            <span class="label">Empresa detectada</span>
+            <strong id="feriasEmpresaLabel">-</strong>
+          </div>
+          <div class="nfe-metric">
+            <span class="label">Total de páginas</span>
+            <strong id="feriasTotalPaginas">0</strong>
+          </div>
+          <div class="nfe-metric">
+            <span class="label">Total de funcionários</span>
+            <strong id="feriasTotalFuncionarios">0</strong>
+          </div>
+        </div>
+
+        <h3 style="margin-top:20px;">Arquivos gerados</h3>
+        <p class="nfe-card-subtitle">
+          Lista de PDFs individuais de férias (nomeados como no arquivo final). Os nomes abaixo são apenas informativos;
+          o download é feito pelo ZIP acima.
+        </p>
+
+        <div class="nfe-table-wrapper">
+          <table class="nfe-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Arquivo</th>
+              </tr>
+            </thead>
+            <tbody id="feriasArquivosTbody">
+              <!-- preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Toggle sidebar (mesmo padrão de nfe/sn)
+    document.addEventListener('DOMContentLoaded', function () {
+      var layout = document.querySelector('.nfe-layout');
+      var sidebarToggle = document.getElementById('sidebarToggle');
+
+      if (layout && sidebarToggle) {
+        sidebarToggle.addEventListener('click', function () {
+          layout.classList.toggle('collapsed');
+        });
+      }
+    });
+  </script>
+
+  <script src="/js/separador-ferias-funcionario.js"></script>
+</body>
+</html>

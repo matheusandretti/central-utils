@@ -12,6 +12,7 @@ from pydantic import BaseModel
 # Importações dos módulos internos (sem circular)
 from api.relatorio_ferias_core import split_pdf_relatorio_ferias
 from api.holerites_core import split_pdf_holerites
+from api.separador_ferias_funcionario_core import processar_ferias_por_funcionario
 
 
 app = FastAPI(title="Integração Python API")
@@ -50,7 +51,6 @@ def processar_separador(params: SeparadorParams):
         raise HTTPException(status_code=500, detail=f"Erro ao processar PDF: {e}")
 
     return {"ok": True, "zip_path": str(zip_path)}
-
 
 # =========================
 # ENDPOINT: HOLERITES (UPLOAD)
@@ -94,6 +94,30 @@ async def processar_holerites_por_empresa(
         print("Erro ao processar holerites:", e)
         raise HTTPException(status_code=500, detail="Erro interno ao processar o PDF.")
 
+class FeriasFuncionarioRequest(BaseModel):
+  pdf_path: str  # caminho absoluto do PDF salvo pelo Node (multer)
+
+
+class FeriasFuncionarioResponse(BaseModel):
+  ok: bool
+  empresa: str
+  total_paginas: int
+  total_funcionarios: int
+  pasta_saida: str
+  zip_path: str
+  arquivos: list[str]
+
+
+@app.post("/api/ferias-funcionario/processar", response_model=FeriasFuncionarioResponse)
+def ferias_funcionario_processar(payload: FeriasFuncionarioRequest):
+  """
+  Endpoint chamado pelo Node.js para processar o PDF de férias por funcionário.
+  """
+  result = processar_ferias_por_funcionario(Path(payload.pdf_path))
+  return {
+    "ok": True,
+    **result,
+  }
 
 # PARA RODAR:
 # uvicorn api.integra_api:app --host 127.0.0.1 --port 8001

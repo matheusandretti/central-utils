@@ -7,7 +7,6 @@ import re
 
 from PyPDF2 import PdfReader, PdfWriter
 
-
 def simplify_name(name: str) -> str:
     """Normaliza o nome da empresa, removendo acentos e caracteres especiais."""
     import unicodedata
@@ -17,7 +16,6 @@ def simplify_name(name: str) -> str:
     name = re.sub(r"[^A-Z0-9 ]+", " ", name)
     name = re.sub(r"\s+", " ", name).strip()
     return name
-
 
 def extract_company_from_page_text(text: str) -> str:
     """
@@ -40,7 +38,6 @@ def extract_company_from_page_text(text: str) -> str:
             return lines[i - 1].strip()
 
     return first_line or "DESCONHECIDO"
-
 
 def split_pdf_relatorio_ferias(input_pdf: Path, out_dir: Path, competencia: str) -> Path:
     """

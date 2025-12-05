@@ -16,6 +16,11 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR);
 }
 
+const FERIAS_FUNC_DIR = path.join(DATA_DIR, 'ferias-funcionario');
+if (!fs.existsSync(FERIAS_FUNC_DIR)) {
+  fs.mkdirSync(FERIAS_FUNC_DIR, { recursive: true });
+}
+
 // Arquivo de resumo do SN (apenas um)
 const SN_SUMMARY_FILE = path.join(DATA_DIR, 'sn_summary.json');
 
@@ -1224,7 +1229,7 @@ app.post(
       res.setHeader(
         'Content-Disposition',
         response.headers['content-disposition'] ||
-          'attachment; filename="holerites_empresas.zip"'
+        'attachment; filename="holerites_empresas.zip"'
       );
       res.setHeader(
         'Content-Type',
@@ -1247,7 +1252,7 @@ app.post(
           } else if (err.response.data.error) {
             errorMsg = err.response.data.error;
           }
-        } catch (_) {}
+        } catch (_) { }
 
         return res.status(err.response.status || 500).json({ error: errorMsg });
       }
@@ -1258,3 +1263,124 @@ app.post(
     }
   }
 );
+
+app.get('/separador-ferias-funcionario', (req, res) => {
+  res.sendFile(path.join(publicDir, 'separador-ferias-funcionario.html'));
+});
+
+// Processamento de PDF de férias por funcionário
+app.post(
+  '/api/separador-ferias-funcionario/process',
+  uploadSeparadorFerias.single('file'), // usa disk storage (com .path)
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Nenhum arquivo enviado.',
+        });
+      }
+
+      // Se você criou o FERIAS_FUNC_DIR, mantém esse bloco:
+      if (!fs.existsSync(FERIAS_FUNC_DIR)) {
+        fs.mkdirSync(FERIAS_FUNC_DIR, { recursive: true });
+      }
+
+      const originalPath = req.file.path; // agora vem preenchido
+      const finalPath = path.join(
+        FERIAS_FUNC_DIR,
+        `${Date.now()}-${req.file.originalname}`
+      );
+
+      fs.renameSync(originalPath, finalPath);
+
+      const pyResp = await axios.post(
+        'http://127.0.0.1:8001/api/ferias-funcionario/processar',
+        {
+          pdf_path: finalPath,
+        }
+      );
+
+      const data = pyResp.data || {};
+      if (!data.ok) {
+        return res.status(500).json({
+          ok: false,
+          error:
+            data.error || 'Falha ao processar o PDF de férias no backend Python.',
+        });
+      }
+
+      const zipPath = data.zip_path;
+      const zipName = path.basename(zipPath);
+      const downloadUrl = `/api/separador-ferias-funcionario/download/${encodeURIComponent(
+        zipName
+      )}`;
+
+      return res.json({
+        ok: true,
+        message: 'PDF de férias processado com sucesso.',
+        empresa: data.empresa,
+        total_paginas: data.total_paginas,
+        total_funcionarios: data.total_funcionarios,
+        arquivos: data.arquivos || [],
+        download_url: downloadUrl,
+      });
+    } catch (err) {
+      console.error('Erro em /api/separador-ferias-funcionario/process:', err);
+      return res.status(500).json({
+        ok: false,
+        error: 'Erro interno ao processar o PDF de férias.',
+      });
+    }
+  }
+);
+
+// Download do ZIP de férias por funcionário
+// Download do ZIP de férias por funcionário
+app.get(
+  '/api/separador-ferias-funcionario/download/:zipName',
+  (req, res) => {
+    try {
+      const zipName = req.params.zipName;
+      const zipPath = path.join(FERIAS_FUNC_DIR, zipName);
+
+      if (!fs.existsSync(zipPath)) {
+        return res.status(404).json({
+          ok: false,
+          error: 'Arquivo ZIP não encontrado.',
+        });
+      }
+
+      // AQUI é a mudança: usamos o callback do download para apagar o arquivo depois
+      res.download(zipPath, zipName, (err) => {
+        if (err) {
+          console.error(
+            'Erro ao enviar ZIP em /api/separador-ferias-funcionario/download:',
+            err
+          );
+          return;
+        }
+
+        // Após envio bem-sucedido, apaga o arquivo ZIP do servidor
+        fs.unlink(zipPath, (unlinkErr) => {
+          if (unlinkErr) {
+            console.error(
+              'Erro ao apagar ZIP em /api/separador-ferias-funcionario/download:',
+              unlinkErr
+            );
+          }
+        });
+      });
+    } catch (err) {
+      console.error(
+        'Erro em /api/separador-ferias-funcionario/download:',
+        err
+      );
+      return res.status(500).json({
+        ok: false,
+        error: 'Erro ao preparar download do ZIP.',
+      });
+    }
+  }
+);
+
