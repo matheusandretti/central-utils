@@ -303,6 +303,4 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
-
-  // ------------------ FIM DA LÓGICA DA NF-E ------------------
 });

@@ -5,6 +5,16 @@ from typing import Optional
 import tempfile
 import shutil
 
+# no topo de api/integra_api.py
+from typing import List, Dict, Any
+from pydantic import BaseModel
+
+from api.gerador_atas_core import (
+    listar_modelos,
+    obter_campos_modelo,
+    gerar_ata as gerar_ata_core,
+)
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -121,3 +131,54 @@ def ferias_funcionario_processar(payload: FeriasFuncionarioRequest):
 
 # PARA RODAR:
 # uvicorn api.integra_api:app --host 127.0.0.1 --port 8001
+
+class LucroItem(BaseModel):
+    ano: int
+    valor: str
+
+
+class SocioPF(BaseModel):
+    nome: str = ""
+    cpf: str = ""
+    qualificacao: str = ""
+
+
+class SocioPJ(BaseModel):
+    pj: str = ""
+    representante: str = ""
+    cpf: str = ""
+    qualificacao: str = ""
+
+
+class GerarAtaParams(BaseModel):
+    modelo_id: str
+    campos: Dict[str, str]
+    lucros: List[LucroItem] = []
+    assinaturasPF: List[SocioPF] = []
+    assinaturasPJ: List[SocioPJ] = []
+
+@app.get("/api/gerador-atas/modelos")
+def api_gerador_atas_modelos():
+    modelos = listar_modelos()
+    return {"ok": True, "modelos": modelos}
+
+
+@app.get("/api/gerador-atas/modelos/{modelo_id}")
+def api_gerador_atas_campos(modelo_id: str):
+    campos = obter_campos_modelo(modelo_id)
+    return {"ok": True, **campos}
+
+
+@app.post("/api/gerador-atas/gerar")
+def api_gerador_atas_gerar(params: GerarAtaParams):
+    file_name = gerar_ata_core(
+        modelo_id=params.modelo_id,
+        campos=params.campos,
+        lucros=[l.dict() for l in params.lucros],
+        assinaturas_pf=[s.dict() for s in params.assinaturasPF],
+        assinaturas_pj=[s.dict() for s in params.assinaturasPJ],
+    )
+    return {
+        "ok": True,
+        "fileName": file_name,
+    }

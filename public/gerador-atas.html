@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Gerador de Atas Societárias</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="app-body nfe-body">
+    <div class="nfe-layout">
+        <!-- SIDEBAR -->
+        <aside class="nfe-sidebar">
+            <div class="nfe-sidebar-top">
+                <div class="nfe-sidebar-logo">
+                    <span class="logo-circle">WL</span>
+                    <span class="logo-text">Portal</span>
+                </div>
+
+                <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+
+            <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="nfe-main">
+            <!-- Cabeçalho -->
+            <header class="nfe-header">
+                <div class="nfe-breadcrumb">Portal / Contábil / Gerador de Atas</div>
+                <h1>Gerador de Atas Societárias</h1>
+                <p>Selecione um modelo de ata, preencha os dados e gere o documento em Word automaticamente.</p>
+            </header>
+
+            <!-- FORM PRINCIPAL -->
+            <form id="ataForm" class="ata-form-root">
+                <!-- Linha: Modelo + Lucros -->
+                <section class="nfe-row">
+                    <!-- CARD: Modelo + Campos -->
+                    <div class="nfe-card nfe-card-upload">
+                        <h2>Modelo e dados da ata</h2>
+                        <p class="nfe-card-subtitle">
+                            Escolha o modelo de ata (.docx) e preencha os campos identificados pelos placeholders do
+                            documento.
+                        </p>
+
+                        <!-- Escolha do modelo -->
+                        <div class="nfe-section">
+                            <h3>Modelo de ata</h3>
+                            <div class="nfe-upload-form">
+                                <label class="nfe-input-file-label">
+                                    <span>Modelo:</span>
+                                    <select id="modeloSelect" class="sn-select" required>
+                                        <option value="">Selecione um modelo...</option>
+                                        <!-- opções preenchidas via JS -->
+                                    </select>
+                                </label>
+                            </div>
+                            <p id="modeloInfo" class="nfe-card-subtitle small">
+                                Os campos serão carregados automaticamente com base nos placeholders {{CAMPO}} do
+                                modelo.
+                            </p>
+                        </div>
+
+                        <hr class="nfe-divider" />
+
+                        <!-- Campos dinâmicos -->
+                        <div class="nfe-section">
+                            <h3>Dados principais da ata</h3>
+                            <div id="camposContainer" class="ata-fields-grid">
+                                <!-- inputs gerados via JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CARD: Lucros -->
+                    <div class="nfe-card nfe-card-ext">
+                        <h2>Lucros acumulados</h2>
+                        <p class="nfe-card-subtitle">
+                            Informe os lucros acumulados por ano. O sistema calcula automaticamente os campos de lucros
+                            por ano,
+                            total e “2021 e outros”.
+                        </p>
+
+                        <div class="nfe-section">
+                            <div class="ata-lucros-header">
+                                <span>Anos e valores</span>
+                                <button type="button" id="btnAddLucro" class="btn btn-secondary btn-small">
+                                    + Adicionar ano
+                                </button>
+                            </div>
+
+                            <div class="nfe-table-wrapper">
+                                <table class="nfe-table ata-lucros-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 80px;">Ano</th>
+                                            <th>Valor (R$)</th>
+                                            <th style="width: 60px;">&nbsp;</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="lucrosBody">
+                                        <!-- linhas adicionadas via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <p class="nfe-card-subtitle small">
+                                Use o formato brasileiro (ex.: <strong>1.234,56</strong>). Campos como LUCRO_TOTAL e
+                                LUCRO_2021_E_OUTROS são calculados automaticamente.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ASSINATURAS -->
+                <section class="nfe-card nfe-card-upload">
+                    <h2>Assinaturas dos sócios</h2>
+                    <p class="nfe-card-subtitle">
+                        Cadastre os sócios PF e PJ que devem aparecer ao final da ata. Todos os campos são opcionais.
+                    </p>
+
+                    <div class="ata-assinaturas-toolbar">
+                        <button type="button" id="btnAddSocioPF" class="btn btn-secondary btn-small">
+                            + Sócio PF
+                        </button>
+                        <button type="button" id="btnAddSocioPJ" class="btn btn-secondary btn-small">
+                            + Sócio PJ
+                        </button>
+                    </div>
+
+                    <div class="ata-assinaturas-grid">
+                        <div>
+                            <h3>Pessoas físicas</h3>
+                            <div id="assinaturasPF" class="ata-assinaturas-list">
+                                <!-- sócios PF via JS -->
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3>Pessoas jurídicas</h3>
+                            <div id="assinaturasPJ" class="ata-assinaturas-list">
+                                <!-- sócios PJ via JS -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- RESUMO / BOTÃO GERAR -->
+                <section class="nfe-card nfe-card-upload">
+                    <h2>Gerar ata</h2>
+                    <p class="nfe-card-subtitle">
+                        Revise os dados informados e clique em <strong>Gerar ata</strong> para criar o arquivo .docx.
+                    </p>
+
+                    <div class="nfe-upload-form ata-actions-row">
+                        <button type="submit" id="btnGerarAta" class="btn btn-primary">
+                            Gerar ata (.docx)
+                        </button>
+                        <span id="ataLoading" class="ata-status-text" style="display:none;">
+                            Processando...
+                        </span>
+                    </div>
+
+                    <div id="ataStatus" class="nfe-upload-message"></div>
+
+                    <div id="ataDownloadWrapper" class="ata-download-wrapper" style="display:none;">
+                        <p>
+                            Última ata gerada:
+                            <a id="ataDownloadLink" href="#" class="btn btn-secondary" download>
+                                Baixar arquivo
+                            </a>
+                        </p>
+                    </div>
+                </section>
+            </form>
+        </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/gerador-atas.js"></script>
+</body>
+
+</html>

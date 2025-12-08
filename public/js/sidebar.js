@@ -78,10 +78,10 @@ const MENU_CONFIG = [
     icon: '🧰',
     items: [
       {
-        id: 'geral-home',
-        label: 'Ver ferramentas na home',
-        href: '/home.html#geral',
-        icon: '🏷️',
+        id: 'gerador-atas',
+        label: 'Gerador de Atas',
+        icon: '📑',
+        href: '/gerador-atas'
       },
     ],
   },

@@ -1418,3 +1418,129 @@ app.get(
   }
 );
 
+// perto das outras rotas de página
+app.get('/gerador-atas', (req, res) => {
+  res.sendFile(path.join(publicDir, 'gerador-atas.html'));
+});
+
+// Config para backend Python FastAPI
+const PY_BASE_URL = process.env.PY_BASE_URL || 'http://127.0.0.1:8001';
+
+// Lista modelos
+app.get('/api/atas/modelos', async (req, res) => {
+  try {
+    const { data } = await axios.get(`${PY_BASE_URL}/api/gerador-atas/modelos`);
+    res.json(data);
+  } catch (err) {
+    console.error('Erro ao listar modelos de ata:', err.message);
+    res.status(500).json({ ok: false, error: 'Erro ao listar modelos de ata' });
+  }
+});
+
+// Campos de um modelo
+app.get('/api/atas/modelos/:modeloId/campos', async (req, res) => {
+  const { modeloId } = req.params;
+  try {
+    const { data } = await axios.get(
+      `${PY_BASE_URL}/api/gerador-atas/modelos/${encodeURIComponent(modeloId)}`
+    );
+    res.json(data);
+  } catch (err) {
+    console.error('Erro ao obter campos do modelo de ata:', err.message);
+    res.status(500).json({ ok: false, error: 'Erro ao obter campos do modelo' });
+  }
+});
+
+// Geração da ata
+app.post('/api/atas/gerar', async (req, res) => {
+  try {
+    const { data } = await axios.post(
+      `${PY_BASE_URL}/api/gerador-atas/gerar`,
+      req.body
+    );
+    res.json(data);
+  } catch (err) {
+    console.error('Erro ao gerar ata:', err.message);
+    res.status(500).json({ ok: false, error: 'Erro ao gerar ata' });
+  }
+});
+
+// Download do arquivo gerado
+app.get('/api/atas/download/:fileName', (req, res) => {
+  const { fileName } = req.params;
+  const filePath = path.join(DATA_DIR, 'atas_geradas', fileName);
+  res.download(filePath, fileName, (err) => {
+    if (err) {
+      console.error('Erro ao fazer download da ata:', err.message);
+      if (!res.headersSent) {
+        res.status(404).json({ ok: false, error: 'Arquivo não encontrado' });
+      }
+    }
+  });
+});
+
+// Busca CEP na BrasilAPI
+app.get('/api/cep/:cep', async (req, res) => {
+  try {
+    const cepRaw = req.params.cep || '';
+    const cep = cepRaw.replace(/\D/g, '');
+
+    if (!cep || cep.length !== 8) {
+      return res.status(400).json({ ok: false, error: 'CEP deve ter 8 dígitos.' });
+    }
+
+    const { data } = await axios.get(`https://brasilapi.com.br/api/cep/v2/${cep}`);
+
+    res.json({ ok: true, data });
+  } catch (err) {
+    if (err.response) {
+      const status = err.response.status || 500;
+      let msg = 'Erro ao consultar CEP.';
+
+      if (status === 400) msg = 'CEP inválido ou mal formatado.';
+      if (status === 404) msg = 'CEP não encontrado.';
+      if (status === 500) msg = 'Erro interno no serviço de CEP.';
+
+      return res.status(status).json({
+        ok: false,
+        error: msg,
+        detail: err.response.data || null
+      });
+    }
+    console.error('Erro ao chamar BrasilAPI CEP:', err.message);
+    res.status(500).json({ ok: false, error: 'Erro interno ao consultar CEP.' });
+  }
+});
+
+// Busca CNPJ na BrasilAPI
+app.get('/api/cnpj/:cnpj', async (req, res) => {
+  try {
+    const cnpjRaw = req.params.cnpj || '';
+    const cnpj = cnpjRaw.replace(/\D/g, '');
+
+    if (!cnpj || cnpj.length !== 14) {
+      return res.status(400).json({ ok: false, error: 'CNPJ deve ter 14 dígitos.' });
+    }
+
+    const { data } = await axios.get(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+
+    res.json({ ok: true, data });
+  } catch (err) {
+    if (err.response) {
+      const status = err.response.status || 500;
+      let msg = 'Erro ao consultar CNPJ.';
+
+      if (status === 400) msg = 'CNPJ inválido ou mal formatado.';
+      if (status === 404) msg = 'CNPJ não encontrado.';
+      if (status === 500) msg = 'Erro interno no serviço de CNPJ.';
+
+      return res.status(status).json({
+        ok: false,
+        error: msg,
+        detail: err.response.data || null
+      });
+    }
+    console.error('Erro ao chamar BrasilAPI CNPJ:', err.message);
+    res.status(500).json({ ok: false, error: 'Erro interno ao consultar CNPJ.' });
+  }
+});
