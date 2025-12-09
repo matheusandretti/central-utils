@@ -24,6 +24,23 @@ from api.relatorio_ferias_core import split_pdf_relatorio_ferias
 from api.holerites_core import split_pdf_holerites
 from api.separador_ferias_funcionario_core import processar_ferias_por_funcionario
 
+# imports (no topo de integra_api.py, se ainda não existirem)
+import base64
+from pydantic import BaseModel
+
+from api.comprimir_pdf_core import comprimir_pdf_bytes
+
+from pathlib import Path
+from pydantic import BaseModel
+from fastapi import HTTPException
+
+from api.extrator_zip_rar_core import processar_pasta_zip_rar
+
+# imports no topo do arquivo integra_api.py
+from typing import List, Optional
+from pydantic import BaseModel
+
+from api.excel_abas_pdf_core import exportar_abas_para_pdf
 
 app = FastAPI(title="Integração Python API")
 
@@ -182,3 +199,82 @@ def api_gerador_atas_gerar(params: GerarAtaParams):
         "ok": True,
         "fileName": file_name,
     }
+
+# modelo Pydantic
+class ComprimirPdfParams(BaseModel):
+  file_name: str
+  file_base64: str
+  jpeg_quality: int = 50
+  dpi_scale: float = 1.0
+
+
+# endpoint FastAPI
+@app.post("/api/comprimir-pdf/processar")
+def processar_comprimir_pdf(params: ComprimirPdfParams):
+  pdf_bytes = base64.b64decode(params.file_base64)
+
+  resultado = comprimir_pdf_bytes(
+      pdf_bytes=pdf_bytes,
+      jpeg_quality=params.jpeg_quality,
+      dpi_scale=params.dpi_scale,
+  )
+
+  compressed_base64 = base64.b64encode(resultado["compressed_bytes"]).decode("ascii")
+
+  return {
+      "ok": True,
+      "file_name": params.file_name,
+      "original_size": resultado["original_size"],
+      "compressed_size": resultado["compressed_size"],
+      "reduction_percent": resultado["reduction_percent"],
+      "compressed_base64": compressed_base64,
+  }
+
+class ExtratorZipRarParams(BaseModel):
+    base_dir: str
+    max_depth: int = 5
+
+@app.post("/api/extrator-zip-rar/process")
+def api_extrator_zip_rar(params: ExtratorZipRarParams):
+    base_dir = Path(params.base_dir)
+
+    if not base_dir.exists() or not base_dir.is_dir():
+        raise HTTPException(status_code=400, detail="Diretório base inválido.")
+
+    resultado = processar_pasta_zip_rar(base_dir=base_dir, max_depth=params.max_depth)
+
+    return {
+        "ok": True,
+        "resultado": resultado,
+    }
+    
+class ExcelAbasPdfParams(BaseModel):
+    arquivos: List[str]
+    pasta_destino: str
+
+
+class ExcelAbasPdfResultado(BaseModel):
+    arquivo_excel: str
+    aba: Optional[str] = None
+    nome_pdf: Optional[str] = None
+    pdf: Optional[str] = None
+    sucesso: bool
+    erro: Optional[str] = None
+
+
+class ExcelAbasPdfResponse(BaseModel):
+    ok: bool
+    resultados: List[ExcelAbasPdfResultado]
+
+
+@app.post("/api/excel-abas-pdf/processar", response_model=ExcelAbasPdfResponse)
+def processar_excel_abas_pdf(params: ExcelAbasPdfParams):
+    """
+    Endpoint que recebe caminhos de arquivos Excel e uma pasta de destino,
+    chama o core e devolve os resultados de cada aba gerada.
+    """
+    resultados = exportar_abas_para_pdf(
+        caminhos_arquivos=params.arquivos,
+        pasta_destino=params.pasta_destino,
+    )
+    return ExcelAbasPdfResponse(ok=True, resultados=resultados)

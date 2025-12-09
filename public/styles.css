@@ -1278,3 +1278,159 @@ body.nfe-body {
 .ata-download-wrapper {
   margin-top: 10px;
 }
+
+/* ===== Acertos Lotes Internets ===== */
+
+.ali-keywords-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 16px;
+  color: #4b5563;
+}
+
+/* === Acertos Lotes Internets – corrigir expansão lateral === */
+
+/* 2 colunas dentro do card de pré-visualização */
+.nfe-card-table .nfe-row {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Deixa as colunas poderem encolher, em vez de crescer com o conteúdo */
+.nfe-card-table .nfe-row > div {
+  min-width: 0;
+}
+
+/* Caixa de pré-visualização: ocupa só a largura do card e ganha scroll interno */
+.ali-preview {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 200px;
+  max-height: 320px;
+  overflow-x: auto;  /* scroll horizontal dentro da caixa */
+  overflow-y: auto;  /* scroll vertical dentro da caixa */
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid #e5e7eb;
+  white-space: pre;  /* mantém o layout do TXT em colunas */
+}
+
+/* ===== Ferramenta: Acerto Lotes Toscan ===== */
+
+.acerto-lotes-toscan-preview-wrapper {
+  margin-top: 10px;
+}
+
+.acerto-lotes-toscan-preview {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 12px;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre;
+}
+
+/* ===== ESTILOS ESPECÍFICOS DA PÁGINA "COMPRIMIR PDF" ===== */
+
+.comprimir-pdf-page .nfe-metric {
+  background: #e5e7eb;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+/* Rótulo em cima (Arquivo, Original, etc.) */
+.comprimir-pdf-page .nfe-metric .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+/* Valor da métrica (tamanho, % etc.) */
+.comprimir-pdf-page .nfe-metric strong {
+  font-size: 16px;
+  line-height: 1.3;
+  color: #111827;
+}
+
+/* Nome do arquivo – menor e com "..." se for muito longo */
+.comprimir-pdf-page #metricFileName {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Opcional: pequenos ajustes visuais da ferramenta extrator ZIP/RAR */
+.extrator-zip-rar-log {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Feedback visual de upload (comum a todas as páginas) */
+.wl-upload-summary {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #6b7280; /* texto mais suave */
+  word-break: break-all;
+}
+
+.nfe-input-file-label,
+.wl-upload-area {
+  position: relative;
+}
+
+/* Borda/efeito ao arrastar arquivos por cima da área do upload */
+.wl-upload-area--dragover,
+.nfe-input-file-label.wl-upload-area--dragover {
+  outline: 2px dashed rgba(15, 23, 42, 0.35);
+  outline-offset: 4px;
+  background-color: rgba(148, 163, 184, 0.08);
+}
+
+/* Overlay global quando o usuário arrasta arquivo sobre a página */
+body.wl-page-dragover {
+  position: relative;
+}
+
+/* Fundo escurecido */
+body.wl-page-dragover::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.60); /* escurece a página */
+  z-index: 9990;
+  pointer-events: none; /* não bloqueia clique/drop nos elementos reais */
+}
+
+/* Mensagem central "Solte para fazer o upload" */
+body.wl-page-dragover::after {
+  content: "Solte o arquivo para fazer o upload";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9991;
+  pointer-events: none;
+
+  padding: 16px 32px;
+  border-radius: 999px;
+
+  background: rgba(15, 23, 42, 0.90);
+  color: #f9fafb;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.65);
+}

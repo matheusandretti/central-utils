@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Acerto Lotes Toscan</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body class="app-body nfe-body">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <!-- Cabeçalho / Breadcrumb -->
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Contábil / Acerto Lotes Toscan</div>
+        <h1>Acerto Lotes Toscan</h1>
+        <p>
+          Remova rapidamente do TXT do Toscan os lançamentos com histórico em branco
+          (pares de linhas L/H), gerando um arquivo ajustado para importação e um
+          relatório com todas as linhas excluídas.
+        </p>
+      </header>
+
+      <!-- Linha principal: Upload + Resumo -->
+      <section class="nfe-row">
+        <!-- CARD: Upload e ações -->
+        <div class="nfe-card nfe-card-upload">
+          <h2>Upload do arquivo de lançamentos (Toscan)</h2>
+          <p class="nfe-card-subtitle">
+            Selecione o arquivo TXT exportado pelo Toscan. A ferramenta irá procurar
+            pares em que uma linha começa com <code>L</code> e a seguinte é uma linha
+            <code>H</code> “vazia” (apenas número da linha), removendo esses lançamentos
+            do arquivo final.
+          </p>
+
+          <form id="toscanForm" class="nfe-upload-form">
+            <label class="nfe-input-file-label">
+              <span>Selecionar arquivo TXT...</span>
+              <input type="file" id="toscanFile" accept=".txt" required />
+            </label>
+
+            <button type="submit" class="btn btn-primary">
+              Processar arquivo
+            </button>
+
+            <button type="button" id="btnDownloadLimpo" class="btn btn-secondary" disabled>
+              Baixar arquivo ajustado
+            </button>
+
+            <button type="button" id="btnDownloadRemovidas" class="btn btn-secondary" disabled>
+              Baixar linhas removidas
+            </button>
+          </form>
+
+          <div id="toscanStatus" class="nfe-upload-message"></div>
+        </div>
+
+        <!-- CARD: Resumo / Métricas -->
+        <div class="nfe-card nfe-card-ext">
+          <h2>Resumo do processamento</h2>
+          <p class="nfe-card-subtitle">
+            Veja quantas linhas foram analisadas, quantas foram removidas e quantas
+            permaneceram no arquivo ajustado.
+          </p>
+
+          <div class="nfe-metrics">
+            <div class="nfe-metric">
+              <span class="label">Total de linhas</span>
+              <strong id="metricTotalLinhas">0</strong>
+            </div>
+            <div class="nfe-metric nfe-metric-error">
+              <span class="label">Linhas removidas</span>
+              <strong id="metricLinhasRemovidas">0</strong>
+            </div>
+            <div class="nfe-metric nfe-metric-done">
+              <span class="label">Linhas mantidas</span>
+              <strong id="metricLinhasMantidas">0</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pré-visualização das linhas removidas -->
+      <section class="nfe-card">
+        <h2>Pré-visualização das linhas removidas</h2>
+        <p class="nfe-card-subtitle">
+          As primeiras linhas removidas são exibidas abaixo apenas para conferência.
+          O arquivo completo das linhas excluídas estará disponível para download.
+        </p>
+        <div class="acerto-lotes-toscan-preview-wrapper">
+          <pre id="previewRemovidas" class="acerto-lotes-toscan-preview">
+Nenhum processamento realizado ainda.
+          </pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/sidebar.js"></script>
+  <script src="/js/acerto-lotes-toscan.js"></script>
+  <script src="/js/upload-helper.js"></script>
+</body>
+
+</html>

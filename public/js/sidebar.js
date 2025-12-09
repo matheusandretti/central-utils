@@ -52,10 +52,16 @@ const MENU_CONFIG = [
     icon: '📊',
     items: [
       {
-        id: 'contabil-home',
-        label: 'Ver ferramentas na home',
-        href: '/home.html#contabil',
-        icon: '🏷️',
+        id: 'acertos-lotes-internets',
+        label: 'Acertos Lotes Internets',
+        href: '/acertos-lotes-internets',
+        icon: '📊',
+      },
+      {
+        id: 'acerto-lotes-toscan',
+        label: 'Acerto Lotes Toscan',
+        href: '/acerto-lotes-toscan',
+        icon: '📄',
       },
     ],
   },
@@ -82,6 +88,24 @@ const MENU_CONFIG = [
         label: 'Gerador de Atas',
         icon: '📑',
         href: '/gerador-atas'
+      },
+      {
+        id: 'comprimir-pdf',
+        label: 'Comprimir PDF',
+        icon: '🧩',
+        href: '/comprimir-pdf'
+      },
+      {
+        id: 'extrator-zip-rar',
+        label: 'Extrator ZIP/RAR',
+        href: '/extrator-zip-rar',
+        icon: '📦',
+      },
+      {
+        id: 'excel-abas-pdf',
+        label: 'Excel → Abas em PDF',
+        icon: '📄',
+        href: '/excel-abas-pdf',
       },
     ],
   },

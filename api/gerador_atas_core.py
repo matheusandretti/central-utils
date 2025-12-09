@@ -479,29 +479,28 @@ def obter_campos_modelo(modelo_id: str) -> Dict[str, Any]:
             }
         )
 
-    # ordena para ficar amigável
+  # ordena para ficar amigável
     def key_func(c):
-        nome = c["name"]
-        ordem_basica = [
-            "NOME_EMPRESA",
-            "CNPJ",
-            "NIRE",
-            "DATA",
-            "CIDADE",
-            "ESTADO",
-            "RUA",
-            "NUMERO_RUA",
-            "BAIRRO",
-            "CEP",
-        ]
-        if nome in ordem_basica:
-            return (0, ordem_basica.index(nome))
-        return (1, nome)
-
+      nome = c["name"]
+      # Ordem dos campos no FORMULÁRIO (somente visual no site)
+      ordem_basica = [
+        "CNPJ",          # 1º: usuário digita e preenche o resto
+        "NOME_EMPRESA",  # 2º: já vem preenchido pelo CNPJ (mas pode editar)
+        "NIRE",
+        "DATA",
+        "CEP",           # CEP sobe aqui, antes de rua/número/bairro
+        "RUA",
+        "NUMERO_RUA",
+        "BAIRRO",
+        "CIDADE",
+        "ESTADO",
+      ]
+      if nome in ordem_basica:
+        return (0, ordem_basica.index(nome))
+      return (1, nome)
     campos.sort(key=key_func)
 
     return {"campos": campos, "lucrosPlaceholders": lucros_placeholders}
-
 
 def gerar_ata(
     modelo_id: str,

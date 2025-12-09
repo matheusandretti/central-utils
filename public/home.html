@@ -123,19 +123,49 @@
 
         <div class="session-body">
             <div class="session-grid">
-                <!-- COLE AQUI os cards de Contábil -->
                 <!-- Contábil -->
+                <!-- Snippet para home.html (sessão Contábil) -->
                 <div class="carousel-card" data-script="acertos-lotes-internets">
                     <div class="card-icon">📊</div>
                     <h3 class="card-title">Acertos Lotes Internets</h3>
-                    <p class="card-subtitle">Ajusta arquivos TXT de clientes para importação contábil sem ajustes
-                        manuais.</p>
+                    <p class="card-subtitle">
+                        Limpa o TXT de lançamentos removendo automaticamente os lançamentos de
+                        rendimentos, pagamentos, tarifas etc., gerando também um arquivo com as linhas excluídas.
+                    </p>
                     <div class="card-tags">
-                        <span>Contábil</span>
+                        <span class="tag">Contábil</span>
+                        <span class="tag">JavaScript</span>
                     </div>
                     <div class="card-hover">
-                        <p>Ajustes no txt do cliente para importação no contabil sem ajustes manuais</p>
-                        <a href="#" class="btn-card">Acessar</a>
+                        <p>
+                            Envie o arquivo TXT de lotes de internet exportado do cliente e receba
+                            um arquivo ajustado, sem os lançamentos indesejados (L + H), além de um
+                            TXT separado com todas as linhas removidas para conferência.
+                        </p>
+                        <a href="/acertos-lotes-internets" class="btn-card">Acessar</a>
+                    </div>
+                </div>
+
+                <!-- Snippet para home.html (sessão Contábil) -->
+                <div class="carousel-card" data-script="acerto-lotes-toscan">
+                    <div class="card-icon">📄</div>
+                    <h3 class="card-title">Acerto Lotes Toscan</h3>
+                    <p class="card-subtitle">
+                        Remove do TXT do Toscan os lançamentos cuja linha de histórico (H) está em branco,
+                        gerando um arquivo ajustado e um relatório das linhas excluídas.
+                    </p>
+                    <div class="card-tags">
+                        <span class="tag">Contábil</span>
+                        <span class="tag">JavaScript</span>
+                    </div>
+                    <div class="card-hover">
+                        <p>
+                            Envie o arquivo TXT de lançamentos gerado pelo Toscan. A ferramenta identifica
+                            pares de linhas L/H em que o histórico está em branco, remove esses lançamentos
+                            do arquivo principal e disponibiliza um arquivo separado com todas as linhas
+                            excluídas para conferência.
+                        </p>
+                        <a href="/acerto-lotes-toscan" class="btn-card">Acessar</a>
                     </div>
                 </div>
 
@@ -303,42 +333,69 @@
                     </div>
                 </div>
 
+                <!-- Snippet para home.html (sessão Geral) -->
                 <div class="carousel-card" data-script="comprimir-pdf">
                     <div class="card-icon">🧩</div>
-                    <h3 class="card-title">Comprimir Pdf</h3>
-                    <p class="card-subtitle">COMPRIME ARQUIVO PDF NO MENOR TAMANHO POSSIVEL.</p>
+                    <h3 class="card-title">Comprimir PDF</h3>
+                    <p class="card-subtitle">
+                        Envie um PDF e receba uma versão otimizada em tons de cinza, com tamanho reduzido.
+                    </p>
                     <div class="card-tags">
-                        <span>Geral</span>
+                        <span class="tag">Geral</span>
+                        <span class="tag">Python</span>
                     </div>
                     <div class="card-hover">
-                        <p>COMPRIME ARQUIVO PDF NO MENOR TAMANHO POSSIVEL</p>
-                        <a href="#" class="btn-card">Acessar</a>
+                        <p>
+                            A ferramenta converte o PDF para tons de cinza, aplica compressão nas páginas
+                            e informa o ganho de tamanho obtido, permitindo baixar o arquivo comprimido
+                            pronto para envio por e-mail ou upload em portais.
+                        </p>
+                        <a href="/comprimir-pdf" class="btn-card">Acessar</a>
                     </div>
                 </div>
 
-                <div class="carousel-card" data-script="extrator-de-zip">
-                    <div class="card-icon">🧩</div>
-                    <h3 class="card-title">Extrator De Zip</h3>
-                    <p class="card-subtitle">Extrai múltiplos arquivos ZIP de uma só vez (GFBR e outros).</p>
+                <!-- Snippet para home.html (sessão Geral) -->
+                <div class="carousel-card" data-script="extrator-zip-rar">
+                    <div class="card-icon">📦</div>
+                    <h3 class="card-title">Extrator Recursivo ZIP/RAR</h3>
+                    <p class="card-subtitle">
+                        Envie um ou mais arquivos ZIP/RAR e receba um pacote único com todos os arquivos extraídos,
+                        inclusive compactados internos.
+                    </p>
                     <div class="card-tags">
-                        <span>Geral</span>
+                        <span class="tag">Geral</span>
+                        <span class="tag">Python</span>
                     </div>
                     <div class="card-hover">
-                        <p>EXTRAIR MULTIPLOS ZIPS - GFBR</p>
-                        <a href="#" class="btn-card">Acessar</a>
+                        <p>
+                            A ferramenta varre todos os ZIPs e RARs enviados, abre compactados internos até 5 níveis de
+                            profundidade
+                            e grava os arquivos finais em uma pasta única, evitando duplicidades por nome e tamanho. No
+                            fim, você
+                            baixa um ZIP consolidado com todos os arquivos extraídos.
+                        </p>
+                        <a href="/extrator-zip-rar" class="btn-card">Acessar</a>
                     </div>
                 </div>
 
-                <div class="carousel-card" data-script="salva-pdf-excel">
-                    <div class="card-icon">💻</div>
-                    <h3 class="card-title">Salva Pdf - Excel</h3>
-                    <p class="card-subtitle">Salva PDFs de várias páginas em um único arquivo Excel.</p>
+                <!-- Snippet para home.html (sessão Contábil) -->
+                <div class="carousel-card" data-script="excel-abas-pdf">
+                    <div class="card-icon">📄</div>
+                    <h3 class="card-title">Excel → Abas em PDF</h3>
+                    <p class="card-subtitle">
+                        Envie planilhas Excel e receba um PDF por aba, já ajustado para 1 página.
+                    </p>
                     <div class="card-tags">
-                        <span>Geral</span>
+                        <span class="tag">Geral</span>
+                        <span class="tag">Python</span>
                     </div>
                     <div class="card-hover">
-                        <p>SALVA PDFS DE VARIAS PAGINAS DE UM EXCEL</p>
-                        <a href="#" class="btn-card">Acessar</a>
+                        <p>
+                            Selecione um ou mais arquivos .xlsx/.xlsm e gere automaticamente um PDF
+                            para cada aba (A1:I32, ajustado para uma página) em um único ZIP para download,
+                            mantendo o padrão de nomes "&lt;Arquivo&gt; - &lt;Aba&gt;.pdf".
+                        </p>
+                        <a href="/excel-abas-pdf" class="btn-card">Acessar</a>
                     </div>
                 </div>
             </div>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PORTAL WILSON LOPES - Excel → Abas em PDF</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body class="app-body nfe-body">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <!-- SEMPRE usar o placeholder da sidebar -->
+      <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <!-- Cabeçalho / Breadcrumb -->
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Contábil / Excel → Abas em PDF</div>
+        <h1>Exportar abas do Excel para PDF</h1>
+        <p>
+          Envie planilhas Excel (.xlsx / .xlsm) e gere um PDF por aba, com área A1:I32
+          ajustada para caber em uma única página.
+        </p>
+      </header>
+
+      <!-- CARD: Upload e processamento -->
+      <section class="nfe-card nfe-card-upload">
+        <h2>Upload das planilhas Excel</h2>
+        <p class="nfe-card-subtitle">
+          Selecione um ou mais arquivos Excel; cada aba será exportada como um PDF separado,
+          com nomes no padrão <strong>&lt;Arquivo&gt; - &lt;Aba&gt;.pdf</strong>.
+        </p>
+
+        <form id="form-excel-abas-pdf" class="nfe-upload-form" enctype="multipart/form-data">
+          <label for="excelFiles" class="nfe-input-file-label">
+            <span>Selecionar arquivos Excel...</span>
+            <input
+              type="file"
+              id="excelFiles"
+              name="files"
+              multiple
+              accept=".xlsx,.xlsm"
+              required
+            />
+          </label>
+
+          <button type="submit" id="btnProcessarExcelAbasPdf" class="btn btn-primary">
+            Gerar PDFs das abas
+          </button>
+        </form>
+
+        <div id="excelAbasPdfStatus" class="nfe-upload-message"></div>
+      </section>
+
+      <!-- CARD: Resultado -->
+      <section class="nfe-card">
+        <div class="nfe-card-header nfe-card-header-with-actions">
+          <div>
+            <h2>Resultado do processamento</h2>
+            <p class="nfe-card-subtitle">
+              Visualize as abas processadas e baixe um arquivo ZIP com todos os PDFs gerados.
+            </p>
+          </div>
+          <div class="nfe-table-actions">
+            <button
+              type="button"
+              id="btnBaixarZipExcelAbasPdf"
+              class="btn btn-secondary"
+              disabled
+            >
+              Baixar ZIP de PDFs
+            </button>
+          </div>
+        </div>
+
+        <div class="nfe-table-wrapper">
+          <table class="nfe-table" id="tabelaResultadosExcelAbasPdf">
+            <thead>
+              <tr>
+                <th>Arquivo Excel</th>
+                <th>Aba</th>
+                <th>Nome do PDF</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/sidebar.js"></script>
+  <script src="/js/excel-abas-pdf.js"></script>
+  <script src="/js/upload-helper.js"></script>
+</body>
+
+</html>

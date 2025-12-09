@@ -1,0 +1,171 @@
+<!-- arquivo sugerido: public/acertos-lotes-internets.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PORTAL WILSON LOPES - Acertos Lotes Internets</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="app-body nfe-body">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <!-- Placeholder da sidebar (preenchida por sidebar.js) -->
+      <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <!-- Cabeçalho -->
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Contábil / Acertos Lotes Internets</div>
+        <h1>Acertos Lotes Internets</h1>
+        <p>
+          Limpe arquivos TXT de lançamentos de internet removendo automaticamente os
+          lançamentos com históricos específicos (rendimento, pagamentos, tarifas etc.).
+        </p>
+      </header>
+
+      <!-- Linha principal: upload + resumo -->
+      <section class="nfe-row">
+        <!-- CARD: Upload e parâmetros -->
+        <div class="nfe-card nfe-card-upload">
+          <h2>Upload do arquivo de lançamentos</h2>
+          <p class="nfe-card-subtitle">
+            Selecione o arquivo TXT de lotes de internet exportado do cliente.
+            O sistema irá remover pares de linhas <strong>L + H</strong> cujo histórico
+            contenha determinadas palavras-chave.
+          </p>
+
+          <form id="loteInternetsForm" class="nfe-upload-form">
+            <label for="arquivoLote" class="nfe-input-file-label">
+              <span>Selecionar arquivo TXT...</span>
+              <input
+                type="file"
+                id="arquivoLote"
+                name="file"
+                accept=".txt"
+                required
+              />
+            </label>
+
+            <button type="submit" id="btnProcessarLote" class="btn btn-primary">
+              Processar arquivo
+            </button>
+          </form>
+
+          <div id="aliStatus" class="nfe-upload-message"></div>
+
+          <div class="nfe-section" style="margin-top: 18px;">
+            <h3>Palavras-chave consideradas no histórico (linha H)</h3>
+            <p class="nfe-card-subtitle">
+              Sempre que uma linha <strong>H</strong> contiver qualquer item da lista abaixo,
+              o par <strong>L + H</strong> correspondente será removido do arquivo.
+            </p>
+            <ul id="aliKeywordsList" class="ali-keywords-list">
+              <li>rendimento</li>
+              <li>desconto obtido</li>
+              <li>pagamento</li>
+              <li>pagar</li>
+              <li>adiantamento a fornecedor</li>
+              <li>adiantamento ao fornecedor</li>
+              <li>distribuicao</li>
+              <li>transf. caixa</li>
+              <li>cesta de relacionamento</li>
+              <li>tarifa cobranca</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- CARD: Resumo do processamento -->
+        <div class="nfe-card nfe-card-ext">
+          <h2>Resumo do processamento</h2>
+          <p class="nfe-card-subtitle">
+            Acompanhe quantas linhas foram analisadas, mantidas e removidas.
+          </p>
+
+          <div class="nfe-metrics">
+            <div class="nfe-metric">
+              <span class="label">Total de linhas</span>
+              <strong id="aliTotalLinhas">0</strong>
+            </div>
+            <div class="nfe-metric nfe-metric-pending">
+              <span class="label">Mantidas</span>
+              <strong id="aliMantidas">0</strong>
+            </div>
+            <div class="nfe-metric nfe-metric-error">
+              <span class="label">Removidas (L + H)</span>
+              <strong id="aliRemovidas">0</strong>
+            </div>
+            <div class="nfe-metric nfe-metric-processing">
+              <span class="label">Pares L+H removidos</span>
+              <strong id="aliParesRemovidos">0</strong>
+            </div>
+          </div>
+
+          <div class="nfe-section" style="margin-top: 16px;">
+            <button
+              type="button"
+              id="btnDownloadMantidas"
+              class="btn btn-secondary"
+              disabled
+            >
+              Baixar arquivo ajustado
+            </button>
+            <button
+              type="button"
+              id="btnDownloadRemovidas"
+              class="btn btn-secondary"
+              disabled
+            >
+              Baixar linhas removidas
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pré-visualização -->
+      <section class="nfe-card nfe-card-table" style="margin-top: 24px;">
+        <div class="nfe-card-header">
+          <div>
+            <h2>Pré-visualização (primeiras linhas)</h2>
+            <p class="nfe-card-subtitle">
+              Use a prévia apenas para conferência rápida. Os arquivos completos
+              devem ser baixados pelos botões acima.
+            </p>
+          </div>
+        </div>
+
+        <div class="nfe-row">
+          <div>
+            <h3>Arquivo ajustado</h3>
+            <pre id="aliPreviewMantidas" class="ali-preview"></pre>
+          </div>
+          <div>
+            <h3>Linhas removidas</h3>
+            <pre id="aliPreviewRemovidas" class="ali-preview"></pre>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/sidebar.js"></script>
+  <script src="/js/acertos-lotes-internets.js"></script>
+  <script src="/js/upload-helper.js"></script>
+</body>
+</html>

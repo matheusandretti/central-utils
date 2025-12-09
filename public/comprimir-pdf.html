@@ -1,0 +1,143 @@
+<!-- arquivo sugerido: public/comprimir-pdf.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PORTAL WILSON LOPES - Comprimir PDF</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="app-body nfe-body comprimir-pdf-page">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <!-- Placeholder da sidebar (preenchido por sidebar.js) -->
+      <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <!-- Cabeçalho / Breadcrumb -->
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Geral / Comprimir PDF</div>
+        <h1>Comprimir arquivos PDF</h1>
+        <p>
+          Converta PDFs para tons de cinza e reduza o tamanho do arquivo para facilitar o envio por e-mail
+          e o upload em portais.
+        </p>
+      </header>
+
+      <!-- Linha principal: upload + resumo -->
+      <section class="nfe-row">
+        <!-- CARD: Upload e parâmetros -->
+        <div class="nfe-card nfe-card-upload">
+          <h2>Upload e parâmetros de compressão</h2>
+          <p class="nfe-card-subtitle">
+            Selecione o PDF e ajuste qualidade e escala. Após o processamento, você poderá baixar o arquivo comprimido.
+          </p>
+
+          <form id="compressForm" class="nfe-upload-form" enctype="multipart/form-data">
+            <label class="nfe-input-file-label">
+              <span>Arquivo PDF:</span>
+              <input
+                type="file"
+                id="pdfFile"
+                name="file"
+                accept="application/pdf"
+                required
+              />
+            </label>
+
+            <label class="nfe-input-file-label">
+              <span>Qualidade da imagem (10–95):</span>
+              <input
+                type="number"
+                id="jpegQuality"
+                name="jpegQuality"
+                min="10"
+                max="95"
+                step="5"
+                value="50"
+              />
+            </label>
+
+            <label class="nfe-input-file-label">
+              <span>Escala DPI (0,7–2,0):</span>
+              <input
+                type="number"
+                id="dpiScale"
+                name="dpiScale"
+                min="0.7"
+                max="2"
+                step="0.1"
+                value="1.0"
+              />
+            </label>
+
+            <button type="submit" id="btnCompress" class="btn btn-primary">
+              Comprimir PDF
+            </button>
+          </form>
+
+          <div id="compressStatus" class="nfe-upload-message"></div>
+        </div>
+
+        <!-- CARD: Resumo da compressão -->
+        <div class="nfe-card">
+          <h2>Resumo da compressão</h2>
+          <p class="nfe-card-subtitle">
+            Após o processamento, veja o ganho de tamanho e baixe o PDF otimizado.
+          </p>
+
+          <div class="nfe-metrics">
+            <div class="nfe-metric">
+              <span class="label">Arquivo</span>
+              <strong id="metricFileName">—</strong>
+            </div>
+            <div class="nfe-metric">
+              <span class="label">Original</span>
+              <strong id="metricOriginalSize">—</strong>
+            </div>
+            <div class="nfe-metric">
+              <span class="label">Comprimido</span>
+              <strong id="metricCompressedSize">—</strong>
+            </div>
+            <div class="nfe-metric">
+              <span class="label">Redução</span>
+              <strong id="metricReduction">—</strong>
+            </div>
+          </div>
+
+          <div class="nfe-upload-form" style="margin-top: 16px;">
+            <button
+              type="button"
+              id="btnDownloadCompressed"
+              class="btn btn-secondary"
+              disabled
+            >
+              Baixar PDF comprimido
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/sidebar.js"></script>
+  <script src="/js/comprimir-pdf.js"></script>
+  <script src="/js/upload-helper.js"></script>
+</body>
+</html>

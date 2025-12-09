@@ -51,11 +51,25 @@ const upload = multer({
   storage: multer.memoryStorage(),
 });
 
+const EXCEL_ABAS_PDF_DIR = path.join(DATA_DIR, 'excel-abas-pdf');
+if (!fs.existsSync(EXCEL_ABAS_PDF_DIR)) {
+  fs.mkdirSync(EXCEL_ABAS_PDF_DIR, { recursive: true });
+}
+
 // Próximo de outras configurações, usando o mesmo DATA_DIR se já existir
 const uploadsDir = path.join(DATA_DIR, 'uploads', 'separador-ferias');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+const extratorZipRarUploadsDir = path.join(DATA_DIR, 'uploads', 'extrator-zip-rar');
+if (!fs.existsSync(extratorZipRarUploadsDir)) {
+  fs.mkdirSync(extratorZipRarUploadsDir, { recursive: true });
+}
+
+const uploadExtratorZipRar = multer({
+  dest: extratorZipRarUploadsDir,
+});
 
 const uploadSeparadorFerias = multer({
   dest: uploadsDir,
@@ -502,7 +516,109 @@ function buildResumoResponse() {
   };
 }
 
+// ----------------------------------------------------------------------
+// ACERTOS LOTES INTERNETS – CONTÁBIL
+// ----------------------------------------------------------------------
+
+// Palavras-chave iguais ao script Python original
+const LOTE_INTERNETS_KEYWORDS = [
+  'rendimento',
+  'desconto obtido',
+  'pagamento',
+  'pagar',
+  'adiantamento a fornecedor',
+  'adiantamento ao fornecedor',
+  'distribuicao',
+  'transf. caixa',
+  'cesta de relacionamento',
+  'tarifa cobranca',
+];
+
+function loteInternetsHistoricoContemPalavra(linhaH) {
+  if (!linhaH) return false;
+  const texto = String(linhaH).toLowerCase();
+  return LOTE_INTERNETS_KEYWORDS.some((palavra) => texto.includes(palavra));
+}
+
+function processarLoteInternetsConteudo(conteudo) {
+  if (typeof conteudo !== 'string') {
+    conteudo = conteudo ? String(conteudo) : '';
+  }
+
+  // Descobre se o arquivo original usava CRLF (\r\n) ou LF (\n)
+  const usaCRLF = conteudo.includes('\r\n');
+  const separador = usaCRLF ? '\r\n' : '\n';
+
+  // Quebra em linhas (mantendo linhas vazias no array)
+  const linhas = conteudo.split(/\r?\n/);
+
+  const linhasMantidas = [];
+  const linhasRemovidas = [];
+
+  let i = 0;
+  while (i < linhas.length) {
+    const linhaAtual = linhas[i];
+
+    if (linhaAtual && linhaAtual.startsWith('L') && i + 1 < linhas.length) {
+      const proximaLinha = linhas[i + 1];
+
+      if (
+        proximaLinha &&
+        proximaLinha.startsWith('H') &&
+        loteInternetsHistoricoContemPalavra(proximaLinha)
+      ) {
+        // Remove L e H (adiciona ambas à lista de removidas)
+        linhasRemovidas.push(linhaAtual, proximaLinha);
+        i += 2;
+        continue;
+      }
+    }
+
+    // Caso não tenha sido removida, mantemos a linha atual
+    linhasMantidas.push(linhaAtual);
+    i += 1;
+  }
+
+  const processedContent = linhasMantidas.join(separador);
+  const removedContent = linhasRemovidas.join(separador);
+
+  return {
+    totalLines: linhas.length,
+    keptLines: linhasMantidas.length,
+    removedLines: linhasRemovidas.length,
+    removedPairs: Math.floor(linhasRemovidas.length / 2),
+    processedContent,
+    removedContent,
+  };
+}
+
+function getTextFromUploadedFile(file) {
+  if (!file) return '';
+  // Preferencialmente memória (multer.memoryStorage)
+  if (file.buffer) {
+    return file.buffer.toString('utf-8');
+  }
+  // Fallback: se estiver gravado em disco
+  if (file.path && fs.existsSync(file.path)) {
+    return fs.readFileSync(file.path, 'utf-8');
+  }
+  return '';
+}
 // ---------- ROTAS DE PÁGINA ----------
+
+async function criarZipComPdfs(pastaPdfs, destinoZip) {
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(destinoZip);
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    output.on('close', resolve);
+    archive.on('error', reject);
+
+    archive.pipe(output);
+    archive.directory(pastaPdfs, false);
+    archive.finalize();
+  });
+}
 
 app.get('/sn', (req, res) => {
   res.sendFile(path.join(publicDir, 'sn.html'));
@@ -1543,4 +1659,326 @@ app.get('/api/cnpj/:cnpj', async (req, res) => {
     console.error('Erro ao chamar BrasilAPI CNPJ:', err.message);
     res.status(500).json({ ok: false, error: 'Erro interno ao consultar CNPJ.' });
   }
+});
+
+// Página: Acertos Lotes Internets
+app.get('/acertos-lotes-internets', (req, res) => {
+  res.sendFile(path.join(publicDir, 'acertos-lotes-internets.html'));
+});
+
+// API: processamento do arquivo TXT de lotes
+app.post('/api/acertos-lotes-internets/process',
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Nenhum arquivo enviado.',
+        });
+      }
+
+      const conteudo = getTextFromUploadedFile(req.file);
+      if (!conteudo) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Não foi possível ler o conteúdo do arquivo enviado.',
+        });
+      }
+
+      const resultado = processarLoteInternetsConteudo(conteudo);
+
+      const originalName = req.file.originalname || 'lancamentos.txt';
+      const baseName =
+        originalName.replace(/\.[^/.]+$/, '') || 'lancamentos';
+      const processedFileName = `${baseName}-ajustado.txt`;
+      const removedFileName = `${baseName}-linhas-removidas.txt`;
+
+      return res.json({
+        ok: true,
+        ...resultado,
+        processedFileName,
+        removedFileName,
+      });
+    } catch (err) {
+      console.error('Erro ao processar lote de internets:', err);
+      return res.status(500).json({
+        ok: false,
+        error: 'Erro interno ao processar o arquivo de lote.',
+      });
+    }
+  }
+);
+
+// Página: Acerto Lotes Toscan (separada do Acertos Lotes Internets)
+app.get('/acerto-lotes-toscan', (req, res) => {
+  res.sendFile(path.join(publicDir, 'acerto-lotes-toscan.html'));
+});
+
+app.get('/comprimir-pdf', (req, res) => {
+  res.sendFile(path.join(publicDir, 'comprimir-pdf.html'));
+});
+
+app.post(
+  '/api/comprimir-pdf/processar',
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Nenhum arquivo foi enviado.',
+        });
+      }
+
+      // 1) Lê o conteúdo do arquivo
+      let fileBuffer;
+
+      // Com a configuração atual (memoryStorage), o arquivo vem aqui:
+      if (req.file.buffer) {
+        fileBuffer = req.file.buffer;
+      }
+      // Se no futuro você trocar para diskStorage, esse bloco passa a funcionar:
+      else if (req.file.path) {
+        fileBuffer = await fs.promises.readFile(req.file.path);
+      } else {
+        return res.status(400).json({
+          ok: false,
+          error: 'Não foi possível ler o arquivo enviado.',
+        });
+      }
+
+      // 2) Converte para base64 para enviar para o backend Python
+      const fileBase64 = fileBuffer.toString('base64');
+
+      const jpegQuality = Number(req.body.jpegQuality) || 50;
+      const dpiScale = Number(req.body.dpiScale) || 1.0;
+
+      const payload = {
+        file_name: req.file.originalname,
+        file_base64: fileBase64,
+        jpeg_quality: jpegQuality,
+        dpi_scale: dpiScale,
+      };
+
+      // 3) Chama a API Python
+      const apiResponse = await axios.post(
+        'http://127.0.0.1:8001/api/comprimir-pdf/processar',
+        payload,
+        { timeout: 600000 } // até 10 minutos
+      );
+
+      // 4) Se um dia você usar diskStorage, pode apagar o arquivo físico aqui,
+      // MAS só se req.file.path existir:
+      if (req.file.path) {
+        fs.promises.unlink(req.file.path).catch(() => { });
+      }
+
+      return res.json(apiResponse.data);
+    } catch (err) {
+      console.error('Erro na compressão de PDF:', err);
+      return res.status(500).json({
+        ok: false,
+        error: 'Erro no servidor ao comprimir o PDF.',
+      });
+    }
+  }
+);
+
+// server.js
+
+app.get('/extrator-zip-rar', (req, res) => {
+  res.sendFile(path.join(publicDir, 'extrator-zip-rar.html'));
+});
+
+// server.js (após configurar multer, DATA_DIR, axios, archiver etc.)
+
+const extratorZipRarRouter = express.Router();
+
+// POST /api/extrator-zip-rar/process
+extratorZipRarRouter.post('/process', uploadExtratorZipRar.array('archives'), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Nenhum arquivo enviado.' });
+    }
+
+    // cria pasta de trabalho para este job
+    const jobId = Date.now().toString();
+    const jobDir = path.join(DATA_DIR, 'extrator-zip-rar', jobId);
+
+    await fs.promises.mkdir(jobDir, { recursive: true });
+
+    // move arquivos enviados para a pasta de trabalho com o nome original
+    for (const file of req.files) {
+      const destPath = path.join(jobDir, file.originalname);
+      await fs.promises.rename(file.path, destPath); // agora file.path existe
+    }
+
+    // chama o backend Python (FastAPI)
+    const pyResponse = await axios.post(
+      'http://127.0.0.1:8001/api/extrator-zip-rar/process',
+      {
+        base_dir: jobDir,
+        max_depth: 5,
+      },
+    );
+
+    const resultado = pyResponse.data?.resultado || {};
+    const destDir = resultado.dest_dir || path.join(jobDir, 'ARQUIVOS');
+
+    // gera um ZIP consolidado dos arquivos extraídos
+    const zipOutputPath = path.join(jobDir, 'resultado.zip');
+
+    await new Promise((resolve, reject) => {
+      const output = fs.createWriteStream(zipOutputPath);
+      const archive = archiver('zip', { zlib: { level: 9 } });
+
+      output.on('close', resolve);
+      archive.on('error', reject);
+
+      archive.pipe(output);
+      archive.directory(destDir, false);
+      archive.finalize();
+    });
+
+    return res.json({
+      ok: true,
+      downloadUrl: `/api/extrator-zip-rar/download/${jobId}`,
+      stats: resultado,
+    });
+  } catch (error) {
+    console.error('Erro em /api/extrator-zip-rar/process:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Erro ao processar arquivos ZIP/RAR.',
+    });
+  }
+});
+
+// GET /api/extrator-zip-rar/download/:jobId
+extratorZipRarRouter.get('/download/:jobId', (req, res) => {
+  const { jobId } = req.params;
+  const zipPath = path.join(DATA_DIR, 'extrator-zip-rar', jobId, 'resultado.zip');
+
+  if (!fs.existsSync(zipPath)) {
+    return res.status(404).json({
+      ok: false,
+      error: 'Arquivo de resultado não encontrado.',
+    });
+  }
+
+  return res.download(zipPath, `resultado-extrator-zip-rar-${jobId}.zip`);
+});
+
+// registra o router
+app.use('/api/extrator-zip-rar', extratorZipRarRouter);
+
+// Página Excel → Abas em PDF
+app.get('/excel-abas-pdf', (req, res) => {
+  res.sendFile(path.join(publicDir, 'excel-abas-pdf.html'));
+});
+
+// Upload de Excel + chamada ao backend Python para exportar abas em PDF
+// Rota: upload + chamada ao backend Python
+app.post(
+  '/api/excel-abas-pdf/processar',
+  upload.array('files'), // usa o mesmo "upload" com memoryStorage
+  async (req, res) => {
+    try {
+      const files = req.files || [];
+      if (!files.length) {
+        return res
+          .status(400)
+          .json({ ok: false, error: 'Nenhum arquivo Excel enviado.' });
+      }
+
+      const jobId = Date.now().toString();
+      const jobDir = path.join(EXCEL_ABAS_PDF_DIR, jobId);
+      const inputDir = path.join(jobDir, 'input'); // onde vou salvar os .xlsx
+      const outputDir = path.join(jobDir, 'pdfs'); // onde o Python vai gravar os PDFs
+
+      fs.mkdirSync(inputDir, { recursive: true });
+      fs.mkdirSync(outputDir, { recursive: true });
+
+      const arquivos = [];
+
+      for (const f of files) {
+        // nome original ou fallback
+        const originalName = f.originalname || `arquivo-${Date.now()}.xlsx`;
+        // simplifica/limpa nome para evitar problemas em path
+        const safeName = originalName.replace(/[^\w\-.]/g, '_');
+        const destPath = path.join(inputDir, safeName);
+
+        if (f.buffer) {
+          // memoryStorage → grava o conteúdo em disco
+          fs.writeFileSync(destPath, f.buffer);
+        } else if (f.path) {
+          // se em algum momento usar diskStorage, garante cópia
+          fs.copyFileSync(f.path, destPath);
+        } else {
+          // sem buffer e sem path → ignora esse arquivo
+          continue;
+        }
+
+        arquivos.push(destPath);
+      }
+
+      if (!arquivos.length) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Não foi possível salvar os arquivos Excel no servidor.',
+        });
+      }
+
+      // Chama o FastAPI passando caminhos válidos
+      const response = await axios.post(
+        'http://127.0.0.1:8001/api/excel-abas-pdf/processar',
+        {
+          arquivos,
+          pasta_destino: outputDir,
+        }
+      );
+
+      const data = response.data || {};
+      if (!data.ok) {
+        return res.status(500).json({
+          ok: false,
+          error: data.error || 'Falha ao gerar PDFs no backend Python.',
+        });
+      }
+
+      // Cria o ZIP com todos os PDFs gerados
+      const zipPath = path.join(EXCEL_ABAS_PDF_DIR, `${jobId}.zip`);
+      await criarZipComPdfs(outputDir, zipPath);
+
+      const zipUrl = `/api/excel-abas-pdf/download/${jobId}`;
+
+      return res.json({
+        ok: true,
+        jobId,
+        zipUrl,
+        resultados: data.resultados || [],
+      });
+    } catch (err) {
+      console.error('Erro em /api/excel-abas-pdf/processar', err);
+      return res.status(500).json({
+        ok: false,
+        error: 'Erro interno ao processar os arquivos Excel.',
+      });
+    }
+  }
+);
+
+// Download do ZIP gerado
+app.get('/api/excel-abas-pdf/download/:jobId', (req, res) => {
+  const { jobId } = req.params;
+  const zipPath = path.join(EXCEL_ABAS_PDF_DIR, `${jobId}.zip`);
+
+  if (!fs.existsSync(zipPath)) {
+    return res
+      .status(404)
+      .json({ ok: false, error: 'Arquivo ZIP não encontrado.' });
+  }
+
+  res.download(zipPath, `excel-abas-pdf-${jobId}.zip`);
 });

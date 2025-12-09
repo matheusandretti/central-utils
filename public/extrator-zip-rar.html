@@ -1,0 +1,119 @@
+<!-- arquivo sugerido: public/extrator-zip-rar.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PORTAL WILSON LOPES - Extrator ZIP/RAR</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <!-- socket.io não é necessário aqui -->
+</head>
+
+<body class="app-body nfe-body">
+    <div class="nfe-layout">
+        <aside class="nfe-sidebar">
+            <div class="nfe-sidebar-top">
+                <div class="nfe-sidebar-logo">
+                    <span class="logo-circle">WL</span>
+                    <span class="logo-text">Portal</span>
+                </div>
+
+                <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+
+            <!-- SEMPRE usar o placeholder da sidebar -->
+            <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+        </aside>
+
+        <main class="nfe-main">
+            <!-- Cabeçalho / Breadcrumb -->
+            <header class="nfe-header">
+                <div class="nfe-breadcrumb">Portal / Geral / Extrator ZIP/RAR</div>
+                <h1>Extrator ZIP/RAR</h1>
+                <p>
+                    Envie um ou mais arquivos ZIP/RAR e receba um único ZIP com todos os arquivos extraídos,
+                    inclusive compactados internos, até 5 níveis de profundidade.
+                </p>
+            </header>
+
+            <!-- CARD PRINCIPAL: upload + ações -->
+            <section class="nfe-card nfe-card-upload">
+                <div class="nfe-card-header">
+                    <div>
+                        <h2>Upload de arquivos compactados</h2>
+                        <p class="nfe-card-subtitle">
+                            Selecione os arquivos ZIP/RAR que deseja extrair. O sistema abrirá arquivos internos
+                            recursivamente e eliminará duplicidades por nome e tamanho.
+                        </p>
+                    </div>
+                </div>
+
+                <form id="zipRarForm" class="nfe-upload-form">
+                    <label class="nfe-input-file-label">
+                        <span>Selecionar arquivos ZIP/RAR...</span>
+                        <input type="file" id="zipRarInput" name="archives" accept=".zip,.rar" multiple required />
+                    </label>
+
+                    <button type="submit" id="btnProcessarZipRar" class="btn btn-primary">
+                        Processar arquivos
+                    </button>
+                </form>
+
+                <div id="zipRarStatus" class="nfe-upload-message"></div>
+            </section>
+
+            <!-- CARD: resumo do processamento -->
+            <section class="nfe-card">
+                <h2>Resumo da extração</h2>
+                <p class="nfe-card-subtitle">
+                    Após o processamento, veja um resumo dos arquivos encontrados e baixe o ZIP consolidado
+                    com todos os arquivos extraídos.
+                </p>
+
+                <div class="nfe-metrics" id="zipRarMetrics" style="display:none;">
+                    <div class="nfe-metric">
+                        <span class="label">Arquivos compactados enviados</span>
+                        <strong id="metricTotalArchives">0</strong>
+                    </div>
+                    <div class="nfe-metric">
+                        <span class="label">Arquivos únicos na pasta ARQUIVOS</span>
+                        <strong id="metricTotalUniqueFiles">0</strong>
+                    </div>
+                    <div class="nfe-metric">
+                        <span class="label">Novos arquivos gravados</span>
+                        <strong id="metricTotalNewFiles">0</strong>
+                    </div>
+                </div>
+
+                <div class="nfe-upload-message" id="zipRarMessageExtra"></div>
+
+                <div style="margin-top: 16px;">
+                    <button type="button" id="btnDownloadResultadoZip" class="btn btn-secondary" disabled>
+                        Baixar ZIP com arquivos extraídos
+                    </button>
+                </div>
+            </section>
+
+            <!-- CARD: log simples (texto) -->
+            <section class="nfe-card">
+                <h2>Log do processamento</h2>
+                <p class="nfe-card-subtitle">
+                    Mensagens e avisos gerados durante o processo podem aparecer aqui (ex.: ausência de arquivos,
+                    problemas com RAR, etc.).
+                </p>
+                <pre id="zipRarLog" style="max-height: 260px; overflow-y: auto; font-size: 12px;"></pre>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/extrator-zip-rar.js"></script>
+    <script src="/js/upload-helper.js"></script>
+</body>
+
+</html>
