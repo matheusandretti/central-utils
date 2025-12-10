@@ -5,7 +5,9 @@ const http = require('http');
 const multer = require('multer');
 const { Server } = require('socket.io');
 const cors = require('cors'); // <<< NOVO
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const axios = require('axios'); // para chamar a API Integra Contador
 const { autenticarSerpro } = require("./serpro-auth");
 const { Pool } = require('pg'); // << ADICIONE ESTA LINHA
