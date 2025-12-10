@@ -44,6 +44,11 @@ from api.excel_abas_pdf_core import exportar_abas_para_pdf
 
 app = FastAPI(title="Integração Python API")
 
+from typing import Optional
+from api.importador_recebimentos_madre_scp_core import (
+    processar_importador_recebimentos_madre_scp,
+)
+from pydantic import BaseModel
 
 # =========================
 # MODELO DE ENTRADA (FÉRIAS)
@@ -53,7 +58,6 @@ class SeparadorParams(BaseModel):
     input_pdf_path: str
     competencia: str
     output_dir: Optional[str] = None
-
 
 # =========================
 # ENDPOINT: RELATÓRIO DE FÉRIAS
@@ -124,7 +128,6 @@ async def processar_holerites_por_empresa(
 class FeriasFuncionarioRequest(BaseModel):
   pdf_path: str  # caminho absoluto do PDF salvo pelo Node (multer)
 
-
 class FeriasFuncionarioResponse(BaseModel):
   ok: bool
   empresa: str
@@ -133,7 +136,6 @@ class FeriasFuncionarioResponse(BaseModel):
   pasta_saida: str
   zip_path: str
   arquivos: list[str]
-
 
 @app.post("/api/ferias-funcionario/processar", response_model=FeriasFuncionarioResponse)
 def ferias_funcionario_processar(payload: FeriasFuncionarioRequest):
@@ -153,19 +155,16 @@ class LucroItem(BaseModel):
     ano: int
     valor: str
 
-
 class SocioPF(BaseModel):
     nome: str = ""
     cpf: str = ""
     qualificacao: str = ""
-
 
 class SocioPJ(BaseModel):
     pj: str = ""
     representante: str = ""
     cpf: str = ""
     qualificacao: str = ""
-
 
 class GerarAtaParams(BaseModel):
     modelo_id: str
@@ -206,7 +205,6 @@ class ComprimirPdfParams(BaseModel):
   file_base64: str
   jpeg_quality: int = 50
   dpi_scale: float = 1.0
-
 
 # endpoint FastAPI
 @app.post("/api/comprimir-pdf/processar")
@@ -252,7 +250,6 @@ class ExcelAbasPdfParams(BaseModel):
     arquivos: List[str]
     pasta_destino: str
 
-
 class ExcelAbasPdfResultado(BaseModel):
     arquivo_excel: str
     aba: Optional[str] = None
@@ -261,11 +258,9 @@ class ExcelAbasPdfResultado(BaseModel):
     sucesso: bool
     erro: Optional[str] = None
 
-
 class ExcelAbasPdfResponse(BaseModel):
     ok: bool
     resultados: List[ExcelAbasPdfResultado]
-
 
 @app.post("/api/excel-abas-pdf/processar", response_model=ExcelAbasPdfResponse)
 def processar_excel_abas_pdf(params: ExcelAbasPdfParams):
@@ -278,3 +273,20 @@ def processar_excel_abas_pdf(params: ExcelAbasPdfParams):
         pasta_destino=params.pasta_destino,
     )
     return ExcelAbasPdfResponse(ok=True, resultados=resultados)
+
+class ParametrosImportadorRecebimentosMadreScp(BaseModel):
+    pdf_path: str
+    output_dir: Optional[str] = None
+
+@app.post("/api/importador-recebimentos-madre-scp/processar")
+def processar_importador_recebimentos_madre_scp_endpoint(
+    params: ParametrosImportadorRecebimentosMadreScp,
+):
+    resultado = processar_importador_recebimentos_madre_scp(
+        pdf_path=params.pdf_path,
+        output_dir=params.output_dir,
+    )
+    return {
+        "ok": True,
+        "resultado": resultado,
+    }

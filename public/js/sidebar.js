@@ -63,6 +63,12 @@ const MENU_CONFIG = [
         href: '/acerto-lotes-toscan',
         icon: '📄',
       },
+      {
+        id: 'importador-recebimentos-madre-scp',
+        label: 'Importador Recebimentos Madre SCP',
+        href: '/importador-recebimentos-madre-scp',
+        icon: '📊',
+      },
     ],
   },
   {

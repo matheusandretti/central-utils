@@ -1,0 +1,125 @@
+<!-- arquivo sugerido: public/importador-recebimentos-madre-scp.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PORTAL WILSON LOPES - Importador Recebimentos Madre SCP</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body class="app-body nfe-body">
+    <div class="nfe-layout">
+        <!-- SIDEBAR -->
+        <aside class="nfe-sidebar">
+            <div class="nfe-sidebar-top">
+                <div class="nfe-sidebar-logo">
+                    <span class="logo-circle">WL</span>
+                    <span class="logo-text">Portal</span>
+                </div>
+
+                <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+
+            <!-- IMPORTANTE: placeholder da sidebar -->
+            <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="nfe-main">
+            <!-- Card de título / descrição -->
+            <section class="nfe-card">
+                <h1>Importador Recebimentos Madre SCP</h1>
+                <p class="nfe-card-subtitle">
+                    Envie o PDF de baixas para gerar um Excel com aba de detalhe e
+                    resumo por cliente, pronto para conciliação e importação contábil.
+                </p>
+                <ul>
+                    <li>Entrada: PDF de baixas/recebimentos (1 arquivo).</li>
+                    <li>Saída: arquivo <strong>.xlsx</strong> com abas “Detalhe” e “Resumo por Cliente”.</li>
+                    <li>Campos de cliente expandidos (título, parcela, unidade, port, oper, etc.).</li>
+                </ul>
+            </section>
+
+            <!-- Card de upload -->
+            <section class="nfe-card">
+                <h2>1. Enviar PDF de recebimentos</h2>
+                <p class="nfe-card-subtitle">
+                    Selecione o arquivo PDF de baixas/recebimentos (formato padrão de relatórios do
+                    banco).
+                </p>
+
+                <form id="madreForm" class="nfe-upload-form" enctype="multipart/form-data">
+                    <label for="pdfFile" class="nfe-input-file-label">
+                        <span>Selecionar PDF...</span>
+                        <input type="file" id="pdfFile" name="pdfFile" accept="application/pdf" required />
+                    </label>
+
+                    <button type="submit" id="btnMadreUpload" class="btn btn-primary">
+                        Processar e gerar Excel
+                    </button>
+                </form>
+
+                <div id="madreStatus" class="nfe-upload-message"></div>
+            </section>
+
+            <!-- Card de resumo rápido -->
+            <section class="nfe-card">
+                <h2>2. Resumo rápido</h2>
+                <div id="madreResumo">
+                    <p>Aguardando envio do PDF.</p>
+                </div>
+
+                <div class="nfe-card-actions">
+                    <a id="madreDownloadLink" class="btn btn-secondary" href="#" download hidden>
+                        Baixar Excel gerado
+                    </a>
+                </div>
+            </section>
+
+            <!-- Card de tabela de resumo por cliente (prévia) -->
+            <section class="nfe-card nfe-card-table">
+                <div class="nfe-card-header nfe-card-header-with-actions">
+                    <div>
+                        <h2>Resumo por cliente (prévia)</h2>
+                        <p class="nfe-card-subtitle">
+                            Totais de Vl. baixa, Acréscimo e Líquido por cliente, conforme o Excel
+                            gerado.:contentReference[oaicite:9]{index=9}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="nfe-table-wrapper">
+                    <table class="nfe-table" id="madreResumoTable">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Vl. baixa</th>
+                                <th>Acréscimo</th>
+                                <th>Líquido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="4">Nenhum dado processado ainda.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/upload-helper.js"></script>
+    <!-- obrigatório em páginas com input file -->:contentReference[oaicite:10]{index=10}
+    <script src="/js/importador-recebimentos-madre-scp.js"></script>
+</body>
+
+</html>
