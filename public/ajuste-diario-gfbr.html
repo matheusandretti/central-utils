@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Ajuste Diário GFBR</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="app-body nfe-body">
+    <div class="nfe-layout">
+        <!-- SIDEBAR -->
+        <aside class="nfe-sidebar">
+            <div class="nfe-sidebar-top">
+                <div class="nfe-sidebar-logo">
+                    <span class="logo-circle">WL</span>
+                    <span class="logo-text">Portal</span>
+                </div>
+
+                <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+
+            <!-- Montada via sidebar.js -->
+            <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="nfe-main">
+            <!-- Cabeçalho -->
+            <header class="nfe-header">
+                <div class="nfe-breadcrumb">Portal / Contábil / Ajuste Diário GFBR</div>
+                <h1>Ajuste Diário GFBR</h1>
+                <p>
+                    Envie o diário em Excel e deixe o robô limpar contas transitórias, separar estornos
+                    e remover recebimentos selecionados antes da importação.
+                </p>
+            </header>
+
+            <!-- Linha principal: upload + resumo -->
+            <section class="nfe-row">
+                <!-- CARD: Upload e opções -->
+                <div class="nfe-card">
+                    <h2>Upload do diário contábil</h2>
+                    <p class="nfe-card-subtitle">
+                        Selecione o arquivo diário em Excel (.xlsx) exportado do GFBR e clique em
+                        <strong>Processar diário</strong>. O arquivo será ajustado e preparado para importação.
+                    </p>
+
+                    <form id="formAjusteDiarioGfbr" class="nfe-upload-form">
+                        <label class="nfe-input-file-label">
+                            <span>Selecionar arquivo .xlsx...</span>
+                            <input type="file" id="arquivoDiario" name="arquivoDiario" accept=".xlsx" required
+                                data-wl-primary-upload="1" />
+                        </label>
+
+                        <button type="submit" id="btnProcessarAjuste" class="btn btn-primary">
+                            Processar diário
+                        </button>
+                    </form>
+
+                    <div class="nfe-upload-form" style="margin-top: 16px; align-items: flex-start;">
+                        <div style="min-width: 220px;">
+                            <label for="abaOrigem">
+                                <div style="font-size: 13px; font-weight: 500; margin-bottom: 4px;">
+                                    Nome da aba de origem (opcional)
+                                </div>
+                                <input type="text" id="abaOrigem" placeholder="Em branco = primeira aba"
+                                    style="padding: 6px 8px; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 13px;" />
+                            </label>
+                        </div>
+
+                        <div style="margin-top: 4px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                                <input type="checkbox" id="criarBackup" checked />
+                                <span>Criar backup (.backup.xlsx) antes de ajustar</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="ajusteStatus" class="nfe-upload-message"></div>
+                </div>
+
+                <!-- CARD RESUMO DO PROCESSAMENTO -->
+                <div class="nfe-card">
+                    <h2>Resumo do processamento</h2>
+                    <p class="nfe-card-subtitle">
+                        Após o processamento, confira abaixo as principais métricas e baixe o diário ajustado.
+                    </p>
+
+                    <div class="nfe-metrics">
+                        <div class="nfe-metric">
+                            <span class="label">Linhas originais</span>
+                            <strong id="metricTotalLinhas">0</strong>
+                        </div>
+                        <div class="nfe-metric">
+                            <span class="label">Linhas finais</span>
+                            <strong id="metricLinhasFinais">0</strong>
+                        </div>
+                        <div class="nfe-metric">
+                            <span class="label">Linhas removidas</span>
+                            <strong id="metricLinhasRemovidas">0</strong>
+                        </div>
+                        <div class="nfe-metric">
+                            <span class="label">Linhas em "Estornos"</span>
+                            <strong id="metricLinhasEstornos">0</strong>
+                        </div>
+                    </div>
+
+                    <div class="ajuste-actions">
+                        <!-- BOTÕES DE DOWNLOAD -->
+                        <div class="ajuste-download-buttons">
+                            <button type="button" id="btnDownloadAjustado" class="btn btn-secondary" disabled>
+                                Baixar diário ajustado
+                            </button>
+
+                            <button type="button" id="btnDownloadBackup" class="btn btn-secondary" disabled>
+                                Baixar backup (.backup.xlsx)
+                            </button>
+                        </div>
+
+                        <!-- BARRA DE PROGRESSO -->
+                        <div id="ajusteProgressContainer" class="nfe-progress ajuste-progress-hidden">
+                            <div class="nfe-progress-bar">
+                                <div id="ajusteProgressFill" class="nfe-progress-fill"></div>
+                            </div>
+                            <div id="ajusteProgressText" class="nfe-progress-text">0%</div>
+                        </div>
+
+                        <!-- TEXTO SOBRE BACKUP -->
+                        <p id="ajusteBackupInfo" class="nfe-card-subtitle ajuste-backup-info"></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tabela de detalhes -->
+            <section class="nfe-card">
+                <h2>Detalhes técnicos do ajuste</h2>
+                <p class="nfe-card-subtitle">
+                    A ferramenta remove pares de contas transitórias, separa estornos em uma aba
+                    <strong>Estornos</strong> e exclui grupos de recebimentos e palavras-chave como
+                    "saída", "invoice", "rend pago" e "refaturamento" nas colunas de texto.
+                </p>
+
+                <div class="nfe-table-wrapper">
+                    <table class="nfe-table" id="ajusteTabelaResumo">
+                        <thead>
+                            <tr>
+                                <th>Indicador</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/upload-helper.js"></script>
+    <script src="/js/ajuste-diario-gfbr.js"></script>
+</body>
+
+</html>

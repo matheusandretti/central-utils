@@ -1,0 +1,150 @@
+<!-- arquivo sugerido: public/separador-csv-baixa-automatica.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PORTAL WILSON LOPES - Separador CSV Baixa Automática</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="app-body nfe-body">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <!-- Sidebar dinâmica via sidebar.js -->
+      <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Contábil / Separador CSV Baixa Automática</div>
+        <h1>Separador CSV – Baixa Automática GFBR</h1>
+        <p>
+          Envie o Excel de baixas e gere automaticamente vários arquivos CSV por ano, com até 50 linhas,
+          prontos para importação.
+        </p>
+      </header>
+
+      <!-- Linha principal: upload + resumo -->
+      <section class="nfe-row">
+        <!-- CARD: Upload e parâmetros -->
+        <div class="nfe-card nfe-card-upload">
+          <h2>Upload do Excel de baixas</h2>
+          <p class="nfe-card-subtitle">
+            Selecione o arquivo Excel exportado da GFBR com a aba “BAIXAS”. O sistema vai separar as linhas
+            por ano (coluna “DATA EMISSÃO”) e gerar CSVs de até 50 linhas.
+          </p>
+
+          <form id="form-separador-csv-baixa-automatica" class="nfe-upload-form">
+            <label class="nfe-input-file-label">
+              <span>Selecionar arquivo Excel...</span>
+              <input
+                type="file"
+                id="inputExcel"
+                name="arquivo"
+                accept=".xlsx,.xlsm,.xlsb,.xls"
+                required
+                data-wl-primary-upload="1"
+              />
+            </label>
+
+            <button type="submit" class="btn btn-primary">
+              Processar arquivo
+            </button>
+          </form>
+
+          <div class="nfe-upload-message" id="statusMensagem">
+            Nenhum arquivo enviado ainda.
+          </div>
+
+          <p class="nfe-card-subtitle" style="margin-top: 8px;">
+            Regras padrão:
+            <br />• Aba: <strong>BAIXAS</strong>
+            <br />• Coluna para ano: <strong>DATA EMISSÃO</strong>
+            <br />• Máximo de <strong>50 linhas</strong> por CSV
+            <br />• Separador CSV: <strong>;</strong>
+          </p>
+        </div>
+
+        <!-- CARD: Resumo rápido -->
+        <div class="nfe-card nfe-card-ext">
+          <h2>Resumo do processamento</h2>
+          <p class="nfe-card-subtitle">
+            Visualize rapidamente quantas linhas foram processadas por ano e baixe os arquivos CSV.
+          </p>
+
+          <div class="nfe-table-wrapper">
+            <table class="nfe-table">
+              <thead>
+                <tr>
+                  <th>Ano</th>
+                  <th>Total de linhas</th>
+                </tr>
+              </thead>
+              <tbody id="resumoAnoBody">
+                <tr>
+                  <td colspan="2">Nenhum processamento realizado.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top: 12px;">
+            <button type="button" id="btnDownloadZip" class="btn btn-secondary" disabled>
+              Baixar ZIP com CSVs gerados
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Detalhamento dos arquivos gerados -->
+      <section class="nfe-card nfe-card-table" style="margin-top: 24px;">
+        <div class="nfe-card-header">
+          <div>
+            <h2>Arquivos CSV gerados</h2>
+            <p class="nfe-card-subtitle">
+              Lista detalhada dos arquivos gerados a partir do Excel enviado.
+            </p>
+          </div>
+        </div>
+
+        <div class="nfe-table-wrapper">
+          <table class="nfe-table">
+            <thead>
+              <tr>
+                <th>Arquivo</th>
+                <th>Ano</th>
+                <th>Linhas</th>
+              </tr>
+            </thead>
+            <tbody id="arquivosGeradosBody">
+              <tr>
+                <td colspan="3">Nenhum arquivo gerado ainda.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/sidebar.js"></script>
+  <!-- página com upload de arquivo → usar helper global -->
+  <script src="/js/upload-helper.js"></script>
+  <script src="/js/separador-csv-baixa-automatica.js"></script>
+</body>
+</html>

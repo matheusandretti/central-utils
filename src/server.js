@@ -79,6 +79,35 @@ const uploadMadreScp = multer({
   dest: path.join(DATA_DIR, 'uploads', 'madre-scp'),
 });
 
+// Diretório para uploads do Ajuste Diário GFBR
+const ajusteDiarioGfbrUploadsDir = path.join(DATA_DIR, 'uploads', 'ajuste-diario-gfbr');
+if (!fs.existsSync(ajusteDiarioGfbrUploadsDir)) {
+  fs.mkdirSync(ajusteDiarioGfbrUploadsDir, { recursive: true });
+}
+
+const storageAjusteDiarioGfbr = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, ajusteDiarioGfbrUploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname) || '.xlsx';
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, unique + ext);
+  },
+});
+
+const uploadAjusteDiarioGfbr = multer({
+  storage: storageAjusteDiarioGfbr,
+});
+
+const SEPARADOR_CSV_BASE_DIR = path.join(DATA_DIR, 'separador-csv-baixa-automatica');
+const SEPARADOR_CSV_UPLOAD_DIR = path.join(SEPARADOR_CSV_BASE_DIR, 'uploads');
+const SEPARADOR_CSV_OUTPUT_DIR = path.join(SEPARADOR_CSV_BASE_DIR, 'outputs');
+
+// Middleware de upload exclusivo para esta ferramenta
+const uploadSeparadorCsv = multer({
+  dest: SEPARADOR_CSV_UPLOAD_DIR,
+});
 // ---------- MIDDLEWARES GERAIS ----------
 
 // CORS liberado para a extensão (Chrome/Firefox)
@@ -2077,3 +2106,223 @@ app.get(
     });
   }
 );
+
+// --- Nova página: ajuste-diario-gfbr ---
+app.get('/ajuste-diario-gfbr', (req, res) => {
+  res.sendFile(path.join(publicDir, 'ajuste-diario-gfbr.html'));
+});
+
+// --- API da ferramenta ajuste-diario-gfbr ---
+app.post(
+  '/api/ajuste-diario-gfbr/processar',
+  uploadAjusteDiarioGfbr.single('arquivoDiario'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Nenhum arquivo Excel enviado.' });
+      }
+
+      const abaOrigem = (req.body.abaOrigem || '').trim();
+      const criarBackupRaw = (req.body.criarBackup || '').toString().toLowerCase();
+      // Considera backup = true quando checkbox marcado (on/true) ou não enviado
+      const criarBackup =
+        criarBackupRaw === '' ||
+        criarBackupRaw === 'true' ||
+        criarBackupRaw === 'on';
+
+      const inputXlsxPath = req.file.path;
+
+      const pyUrl =
+        process.env.AJUSTE_DIARIO_GFBR_API_URL ||
+        'http://localhost:8001/api/ajuste-diario-gfbr/processar';
+
+      const pyResp = await axios.post(pyUrl, {
+        input_xlsx_path: inputXlsxPath,
+        aba_origem: abaOrigem || null,
+        criar_backup: criarBackup,
+      });
+
+      const data = pyResp.data; // 👈 agora "data" existe
+
+      if (!data || !data.ok || !data.resumo) {
+        console.error(
+          'Resposta inesperada do backend Python (ajuste-diario-gfbr):',
+          pyResp.data
+        );
+        return res
+          .status(500)
+          .json({ error: 'Erro ao ajustar diário no backend Python.' });
+      }
+
+      const resumo = data.resumo;
+      const backupFileName = resumo.backup_path
+        ? path.basename(resumo.backup_path)
+        : null;
+
+      return res.json({
+        ok: true,
+        resumo,
+        fileId: req.file.filename,
+        downloadUrl: `/api/ajuste-diario-gfbr/download/${req.file.filename}`,
+        backupDownloadUrl: backupFileName
+          ? `/api/ajuste-diario-gfbr/download-backup/${backupFileName}`
+          : null,
+        message: resumo.mensagem || 'Diário ajustado com sucesso.',
+      });
+
+    } catch (err) {
+      console.error('Erro em /api/ajuste-diario-gfbr/processar:', err);
+      return res.status(500).json({ error: 'Erro ao processar diário.' });
+    }
+  }
+);
+
+// --- Download do diário ajustado (ajuste-diario-gfbr) ---
+app.get('/api/ajuste-diario-gfbr/download/:fileId', (req, res) => {
+  try {
+    const fileId = req.params.fileId;
+    const filePath = path.join(ajusteDiarioGfbrUploadsDir, fileId);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Arquivo ajustado não encontrado.' });
+    }
+
+    const downloadName = 'diario-ajustado.xlsx';
+    res.download(filePath, downloadName);
+  } catch (err) {
+    console.error('Erro em /api/ajuste-diario-gfbr/download:', err);
+    return res.status(500).json({ error: 'Erro ao baixar arquivo ajustado.' });
+  }
+});
+
+// download do backup (arquivo original .backup.xlsx)
+app.get('/api/ajuste-diario-gfbr/download-backup/:fileName', (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const filePath = path.join(ajusteDiarioGfbrUploadsDir, fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return res
+        .status(404)
+        .json({ error: 'Arquivo de backup não encontrado.' });
+    }
+
+    const downloadName = 'diario-original.backup.xlsx';
+    res.download(filePath, downloadName);
+  } catch (err) {
+    console.error('Erro em /api/ajuste-diario-gfbr/download-backup:', err);
+    return res
+      .status(500)
+      .json({ error: 'Erro ao baixar arquivo de backup.' });
+  }
+});
+
+// --- Nova página: separador-csv-baixa-automatica ---
+app.get('/separador-csv-baixa-automatica', (req, res) => {
+  res.sendFile(path.join(publicDir, 'separador-csv-baixa-automatica.html'));
+});
+
+// --- API da ferramenta separador-csv-baixa-automatica ---
+app.post(
+  '/api/separador-csv-baixa-automatica/processar',
+  uploadSeparadorCsv.single('arquivo'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Nenhum arquivo recebido.',
+        });
+      }
+
+      const pythonBaseUrl =
+        process.env.PYTHON_API_URL || 'http://127.0.0.1:8001';
+
+      const jobId = Date.now().toString();
+      const outputDir = path.join(SEPARADOR_CSV_OUTPUT_DIR, jobId);
+
+      const payload = {
+        input_path: req.file.path,
+        output_dir: outputDir,
+        sheet_name: 'BAIXAS',
+        year_source_column: 'DATA EMISSÃO',
+        max_linhas_por_arquivo: 50,
+        csv_sep: ';',
+      };
+
+      const pyResponse = await axios.post(
+        `${pythonBaseUrl}/api/separador-csv-baixa-automatica/processar`,
+        payload
+      );
+
+      const data = pyResponse.data || {};
+
+      if (!data.ok || !data.resultado) {
+        return res.status(500).json({
+          ok: false,
+          error: data.error || 'Falha ao processar no backend Python.',
+        });
+      }
+
+      const resultado = data.resultado;
+      const arquivosGerados = resultado.arquivos_gerados || [];
+      const resumoPorAno = resultado.resumo_por_ano || {};
+
+      // Gera o ZIP com os CSVs
+      fs.mkdirSync(outputDir, { recursive: true });
+
+      const zipPath = path.join(outputDir, 'resultado.zip');
+
+      await new Promise((resolve, reject) => {
+        const output = fs.createWriteStream(zipPath);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+
+        output.on('close', resolve);
+        archive.on('error', reject);
+
+        archive.pipe(output);
+
+        for (const arq of arquivosGerados) {
+          const fullPath = path.join(outputDir, arq.arquivo);
+          // espera-se que o Python tenha gravado os arquivos em output_dir
+          archive.file(fullPath, { name: arq.arquivo });
+        }
+
+        archive.finalize();
+      });
+
+      return res.json({
+        ok: true,
+        resumoPorAno,
+        arquivosGerados,
+        downloadId: jobId,
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({
+        ok: false,
+        error: 'Erro inesperado ao processar o arquivo.',
+      });
+    }
+  }
+);
+
+// Endpoint para download do ZIP gerado
+app.get('/api/separador-csv-baixa-automatica/download/:jobId', (req, res) => {
+  const { jobId } = req.params;
+
+  const zipPath = path.join(
+    SEPARADOR_CSV_OUTPUT_DIR,
+    jobId,
+    'resultado.zip'
+  );
+
+  if (!fs.existsSync(zipPath)) {
+    return res.status(404).json({
+      ok: false,
+      error: 'Arquivo ZIP não encontrado.',
+    });
+  }
+
+  return res.download(zipPath, `separador-csv-baixa-automatica-${jobId}.zip`);
+});

@@ -42,6 +42,9 @@ from pydantic import BaseModel
 
 from api.excel_abas_pdf_core import exportar_abas_para_pdf
 
+from pydantic import BaseModel
+from api.separador_csv_baixa_automatica_core import processar_baixa_automatica_arquivo
+
 app = FastAPI(title="Integração Python API")
 
 from typing import Optional
@@ -50,6 +53,9 @@ from api.importador_recebimentos_madre_scp_core import (
 )
 from pydantic import BaseModel
 
+from typing import Optional
+from pydantic import BaseModel
+from api.ajuste_diario_gfbr_core import ajustar_diario_gfbr
 # =========================
 # MODELO DE ENTRADA (FÉRIAS)
 # =========================
@@ -290,3 +296,43 @@ def processar_importador_recebimentos_madre_scp_endpoint(
         "ok": True,
         "resultado": resultado,
     }
+    
+class ParametrosAjusteDiarioGfbr(BaseModel):
+  input_xlsx_path: str
+  aba_origem: Optional[str] = None
+  criar_backup: bool = True
+
+@app.post("/api/ajuste-diario-gfbr/processar")
+def processar_ajuste_diario_gfbr(params: ParametrosAjusteDiarioGfbr):
+  resumo = ajustar_diario_gfbr(
+      input_xlsx_path=params.input_xlsx_path,
+      aba_origem=params.aba_origem,
+      criar_backup=params.criar_backup,
+  )
+  return {
+      "ok": True,
+      "resumo": resumo,
+  }
+
+class ParametrosSeparadorCSVBaixaAutomatica(BaseModel):
+  input_path: str
+  output_dir: str
+  sheet_name: str = "BAIXAS"
+  year_source_column: str = "DATA EMISSÃO"
+  max_linhas_por_arquivo: int = 50
+  csv_sep: str = ";"
+
+@app.post("/api/separador-csv-baixa-automatica/processar")
+def processar_separador_csv_baixa_automatica(params: ParametrosSeparadorCSVBaixaAutomatica):
+  resultado = processar_baixa_automatica_arquivo(
+    input_path=params.input_path,
+    output_dir=params.output_dir,
+    sheet_name=params.sheet_name,
+    year_source_column=params.year_source_column,
+    max_linhas_por_arquivo=params.max_linhas_por_arquivo,
+    csv_sep=params.csv_sep,
+  )
+  return {
+    "ok": resultado.get("ok", False),
+    "resultado": resultado,
+  }

@@ -1434,3 +1434,57 @@ body.wl-page-dragover::after {
   letter-spacing: 0.03em;
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.65);
 }
+
+/* Layout do bloco de ações (botões + progresso + texto) */
+.ajuste-actions {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Linha dos botões de download */
+.ajuste-download-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Texto de info do backup */
+.ajuste-backup-info {
+  margin-top: 4px;
+}
+
+/* Progress bar – já tínhamos algo parecido, só complementando */
+.ajuste-progress-hidden {
+  display: none;
+}
+
+.nfe-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.nfe-progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.nfe-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: #0f172a;
+  transition: width 0.2s ease-out;
+}
+
+.nfe-progress-text {
+  min-width: 32px;
+  text-align: right;
+}

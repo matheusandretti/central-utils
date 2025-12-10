@@ -69,6 +69,18 @@ const MENU_CONFIG = [
         href: '/importador-recebimentos-madre-scp',
         icon: '📊',
       },
+      {
+        id: 'ajuste-diario-gfbr',
+        label: 'Ajuste Diario GFBR',
+        href: '/ajuste-diario-gfbr',
+        icon: '📄',
+      },
+      {
+        id: 'separador-csv-baixa-automatica',
+        label: 'Separador CSV Baixa Automática',
+        href: '/separador-csv-baixa-automatica',
+        icon: '📊',
+      }
     ],
   },
   {
