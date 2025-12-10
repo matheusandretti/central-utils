@@ -8,6 +8,10 @@ const cors = require('cors'); // <<< NOVO
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
+
+// Config para backend Python FastAPI
+const PY_BASE_URL = process.env.PY_BASE_URL || 'https://central-utils-api.onrender.com';
+
 const axios = require('axios'); // para chamar a API Integra Contador
 const { autenticarSerpro } = require("./serpro-auth");
 const { Pool } = require('pg'); // << ADICIONE ESTA LINHA
@@ -1481,7 +1485,7 @@ app.post(
       fs.renameSync(originalPath, finalPath);
 
       const pyResp = await axios.post(
-        'http://127.0.0.1:8001/api/ferias-funcionario/processar',
+        `${PY_BASE_URL}/api/ferias-funcionario/processar`,
         {
           pdf_path: finalPath,
         }
@@ -1574,9 +1578,6 @@ app.get(
 app.get('/gerador-atas', (req, res) => {
   res.sendFile(path.join(publicDir, 'gerador-atas.html'));
 });
-
-// Config para backend Python FastAPI
-const PY_BASE_URL = process.env.PY_BASE_URL || 'https://central-utils-api.onrender.com';
 
 // Lista modelos
 app.get('/api/atas/modelos', async (req, res) => {
@@ -1799,7 +1800,7 @@ app.post(
 
       // 3) Chama a API Python
       const apiResponse = await axios.post(
-        'http://127.0.0.1:8001/api/comprimir-pdf/processar',
+        `${PY_BASE_URL}/api/comprimir-pdf/processar`,
         payload,
         { timeout: 600000 } // até 10 minutos
       );
@@ -1852,7 +1853,7 @@ extratorZipRarRouter.post('/process', uploadExtratorZipRar.array('archives'), as
 
     // chama o backend Python (FastAPI)
     const pyResponse = await axios.post(
-      'http://127.0.0.1:8001/api/extrator-zip-rar/process',
+      `${PY_BASE_URL}/api/extrator-zip-rar/process`,
       {
         base_dir: jobDir,
         max_depth: 5,
@@ -1968,7 +1969,7 @@ app.post(
 
       // Chama o FastAPI passando caminhos válidos
       const response = await axios.post(
-        'http://127.0.0.1:8001/api/excel-abas-pdf/processar',
+        `${PY_BASE_URL}/api/excel-abas-pdf/processar`,
         {
           arquivos,
           pasta_destino: outputDir,
@@ -2036,7 +2037,7 @@ app.post(
 
       const axios = require('axios');
       const pythonBase =
-        process.env.PYTHON_API_URL || 'http://127.0.0.1:8001';
+        process.env.PYTHON_API_URL || `${PY_BASE_URL}`;
       const pythonUrl =
         pythonBase + '/api/importador-recebimentos-madre-scp/processar';
 
@@ -2239,7 +2240,7 @@ app.post(
       }
 
       const pythonBaseUrl =
-        process.env.PYTHON_API_URL || 'http://127.0.0.1:8001';
+        process.env.PYTHON_API_URL || `${PY_BASE_URL}`;
 
       const jobId = Date.now().toString();
       const outputDir = path.join(SEPARADOR_CSV_OUTPUT_DIR, jobId);
