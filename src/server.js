@@ -1576,7 +1576,7 @@ app.get('/gerador-atas', (req, res) => {
 });
 
 // Config para backend Python FastAPI
-const PY_BASE_URL = process.env.PY_BASE_URL || 'https://central-utils-api.onrender.com';
+const PY_BASE_URL = process.env.PY_BASE_URL || 'http://127.0.0.1:8001';
 
 // Lista modelos
 app.get('/api/atas/modelos', async (req, res) => {
