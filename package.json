@@ -7,11 +7,11 @@
   "type": "commonjs",
   "main": "src/worker.js",
   "scripts": {
-    "start": "node src/worker.js",
-    "dev:node": "node src/worker.js",
-    "dev:py": "uvicorn api.integra_api:app --host 127.0.0.1 --port 8001",
-    "dev": "concurrently --kill-others-on-fail \"npm run dev:node\" \"npm run dev:py\""
-  },
+  "start": "node src/worker.js",
+  "dev:node": "node src/worker.js",
+  "dev:py": ".venv\\Scripts\\python.exe -m uvicorn api.integra_api:app --host 127.0.0.1 --port 8001",
+  "dev": "concurrently --kill-others-on-fail \"npm run dev:node\" \"npm run dev:py\""
+},
   "keywords": [],
   "dependencies": {
     "archiver": "^7.0.1",

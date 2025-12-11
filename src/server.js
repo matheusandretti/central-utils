@@ -1399,7 +1399,7 @@ app.post(
 
       // URL do serviço Python (ajuste se usar outra porta/host)
       const pythonUrl = process.env.HOLERITES_SERVICE_URL ||
-        'http://127.0.0.1:8001/processar-holerites-por-empresa';
+        `${PY_BASE_URL}/processar-holerites-por-empresa`;
 
       const response = await axios.post(pythonUrl, formData, {
         headers: {
@@ -1478,7 +1478,7 @@ app.post(
       fs.renameSync(originalPath, finalPath);
 
       const pyResp = await axios.post(
-        'http://127.0.0.1:8001/api/ferias-funcionario/processar',
+        `${PY_BASE_URL}/api/ferias-funcionario/processar`,
         {
           pdf_path: finalPath,
         }
@@ -1796,7 +1796,7 @@ app.post(
 
       // 3) Chama a API Python
       const apiResponse = await axios.post(
-        'http://127.0.0.1:8001/api/comprimir-pdf/processar',
+        `${PY_BASE_URL}/api/comprimir-pdf/processar`,
         payload,
         { timeout: 600000 } // até 10 minutos
       );
@@ -1849,7 +1849,7 @@ extratorZipRarRouter.post('/process', uploadExtratorZipRar.array('archives'), as
 
     // chama o backend Python (FastAPI)
     const pyResponse = await axios.post(
-      'http://127.0.0.1:8001/api/extrator-zip-rar/process',
+      `${PY_BASE_URL}/api/extrator-zip-rar/process`,
       {
         base_dir: jobDir,
         max_depth: 5,
@@ -1965,7 +1965,7 @@ app.post(
 
       // Chama o FastAPI passando caminhos válidos
       const response = await axios.post(
-        'http://127.0.0.1:8001/api/excel-abas-pdf/processar',
+        `${PY_BASE_URL}/api/excel-abas-pdf/processar`,
         {
           arquivos,
           pasta_destino: outputDir,
