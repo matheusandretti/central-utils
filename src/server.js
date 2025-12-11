@@ -1331,7 +1331,7 @@ app.post(
       // Chamada ao backend Python (FastAPI)
       const pyUrl =
         process.env.SEPARADOR_FERIAS_API_URL ||
-        `${PY_BASE_URL}/api/separador-pdf-relatorio-de-ferias/processar`;
+        'http://localhost:8001/api/separador-pdf-relatorio-de-ferias/processar';
 
       const pyResp = await axios.post(pyUrl, {
         input_pdf_path: inputPdfPath,
@@ -1400,9 +1400,8 @@ app.post(
       formData.append('competencia', competencia);
 
       // URL do serviço Python (ajuste se usar outra porta/host)
-      const pythonUrl =
-        process.env.HOLERITES_SERVICE_URL ||
-        `${PY_BASE_URL}/processar-holerites-por-empresa`;
+      const pythonUrl = process.env.HOLERITES_SERVICE_URL ||
+        'http://127.0.0.1:8001/processar-holerites-por-empresa';
 
       const response = await axios.post(pythonUrl, formData, {
         headers: {
@@ -2137,7 +2136,7 @@ app.post(
 
       const pyUrl =
         process.env.AJUSTE_DIARIO_GFBR_API_URL ||
-        `${PY_BASE_URL}/api/ajuste-diario-gfbr/processar`;
+        'http://localhost:8001/api/ajuste-diario-gfbr/processar';
 
       const pyResp = await axios.post(pyUrl, {
         input_xlsx_path: inputXlsxPath,
