@@ -10,6 +10,7 @@ const axios = require('axios'); // para chamar a API Integra Contador
 const { autenticarSerpro } = require("./serpro-auth");
 const { Pool } = require('pg'); // << ADICIONE ESTA LINHA
 const archiver = require('archiver');
+const { createHttpsAgent, obterToken } = require('./serpro-auth'); // reaproveita seu serpro-auth.js;
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -393,6 +394,49 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// ---------- FUNÇÕES AUXILIARES (Entregador MIT) ----------
+// Upload em memória para o arquivo JSON do MIT
+const mitUpload = multer({ storage: multer.memoryStorage() });
+
+// Helpers para CNPJ (12 dígitos -> 14 dígitos) reutilizando a lógica do Python
+function calcularDvsCnpj12(primeiros12) {
+  if (!primeiros12 || primeiros12.length !== 12 || !/^\d+$/.test(primeiros12)) {
+    throw new Error('Base de CNPJ inválida (esperado 12 dígitos numéricos).');
+  }
+
+  const pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  let soma1 = 0;
+  for (let i = 0; i < 12; i++) {
+    soma1 += parseInt(primeiros12[i], 10) * pesos1[i];
+  }
+  const resto1 = soma1 % 11;
+  const dv1 = resto1 < 2 ? 0 : 11 - resto1;
+
+  const pesos2 = [6].concat(pesos1);
+  const base13 = primeiros12 + String(dv1);
+  let soma2 = 0;
+  for (let i = 0; i < 13; i++) {
+    soma2 += parseInt(base13[i], 10) * pesos2[i];
+  }
+  const resto2 = soma2 % 11;
+  const dv2 = resto2 < 2 ? 0 : 11 - resto2;
+
+  return `${dv1}${dv2}`;
+}
+
+function extrairCnpjContribuinteDeNomeArquivo(nomeArquivo) {
+  const match = (nomeArquivo || '').match(/(\d{8})/);
+  if (!match) {
+    throw new Error(
+      'Não foi possível localizar 8 dígitos de CNPJ no nome do arquivo JSON do MIT.'
+    );
+  }
+  const raiz8 = match[1]; // primeiros 8 dígitos
+  const base12 = `${raiz8}0001`; // assume sempre matriz "0001"
+  const dvs = calcularDvsCnpj12(base12);
+  return base12 + dvs; // 14 dígitos
+}
+
 // ---------- FUNÇÕES AUXILIARES: EMPRESAS (Postgres) ----------
 
 async function dbGetSnCompanies() {
@@ -728,6 +772,11 @@ app.get('/api/sn/receipt/:id', async (req, res) => {
     console.error('Erro ao buscar recibo:', err);
     res.status(500).send('Erro ao buscar recibo');
   }
+});
+
+// --- Nova página: Envio MIT Apuração DCTFWeb ---
+app.get('/mit', (req, res) => {
+  res.sendFile(path.join(publicDir, 'mit.html'));
 });
 
 // ---------- ROTA: DOWNLOAD ZIP COM VÁRIOS RECIBOS ----------
@@ -2078,6 +2127,151 @@ app.post(
     }
   }
 );
+
+// --- API: Enviar declaração MIT (ENCAPURACAO314) ---
+app.post(
+  '/api/mit/enviar-declaracao',
+  mitUpload.single('arquivo'),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Nenhum arquivo foi enviado. Use o campo "arquivo" no formulário.'
+        });
+      }
+
+      const nomeArquivo = req.file.originalname || 'MIT.json';
+      const cnpjContribuinte = extrairCnpjContribuinteDeNomeArquivo(nomeArquivo);
+
+      // Lê JSON a partir do buffer (upload em memória)
+      const conteudo = req.file.buffer.toString('utf8').replace(/^\uFEFF/, '').trim();
+      let dadosMit;
+      try {
+        dadosMit = JSON.parse(conteudo);
+      } catch (e) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Conteúdo do arquivo não é um JSON válido.',
+          detalhe: String(e)
+        });
+      }
+
+      // Sem movimento -> forçar TransmissaoImediata = true em nível raiz e, se desejado, em DadosIniciais
+      const semMovimento = !!(dadosMit && dadosMit.DadosIniciais && dadosMit.DadosIniciais.SemMovimento);
+
+      if (semMovimento) {
+        if (!Object.prototype.hasOwnProperty.call(dadosMit, 'TransmissaoImediata')) {
+          dadosMit.TransmissaoImediata = true;
+        }
+        if (
+          dadosMit.DadosIniciais &&
+          !Object.prototype.hasOwnProperty.call(
+            dadosMit.DadosIniciais,
+            'TransmissaoImediata'
+          )
+        ) {
+          dadosMit.DadosIniciais.TransmissaoImediata = true;
+        }
+      }
+
+      // Monta payload para Integra Contador / MIT
+      const payloadMit = {
+        contratante: {
+          numero: process.env.CNPJ_CONTRATANTE,
+          tipo: 2
+        },
+        autorPedidoDados: {
+          numero: process.env.CNPJ_CONTRATANTE,
+          tipo: 2
+        },
+        contribuinte: {
+          numero: cnpjContribuinte,
+          tipo: 2
+        },
+        pedidoDados: {
+          idSistema: 'MIT',
+          idServico: 'ENCAPURACAO314',
+          versaoSistema: '1.0',
+          dados: JSON.stringify(dadosMit)
+        }
+      };
+
+      // Autenticação no SERPRO: usa seu serpro-auth.js
+      const { accessToken, jwtToken } = await obterToken();
+
+      const urlDeclarar =
+        process.env.SERPRO_DECLARAR_URL ||
+        'https://gateway.apiserpro.serpro.gov.br/integra-contador-trial/v1/Declarar';
+
+      const httpsAgent = createHttpsAgent(); // certificado PFX + senha lidos do .env
+
+      const resp = await axios.post(urlDeclarar, payloadMit, {
+        httpsAgent,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          jwt_token: jwtToken,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      });
+
+      const data = resp.data || {};
+      const mensagens = Array.isArray(data.mensagens) ? data.mensagens : [];
+
+      const sucessoEncerramento = mensagens.some(
+        (m) =>
+          m &&
+          typeof m.codigo === 'string' &&
+          m.codigo.includes('Sucesso-MIT-MSG_0024')
+      );
+
+      let protocoloEncerramento = null;
+      let idApuracao = null;
+
+      if (typeof data.dados === 'string') {
+        try {
+          const dadosObj = JSON.parse(data.dados);
+          protocoloEncerramento = dadosObj.protocoloEncerramento || null;
+          idApuracao = dadosObj.idApuracao || null;
+        } catch {
+          // se não for JSON, ignoramos
+        }
+      }
+
+      return res.json({
+        ok: true,
+        sucessoEncerramento,
+        protocoloEncerramento,
+        idApuracao,
+        serproStatus: resp.status,
+        serproResponseId: data.responseId || null,
+        serproMensagens: mensagens,
+        serproRaw: data,
+        payloadResumo: {
+          contratante: payloadMit.contratante,
+          contribuinte: payloadMit.contribuinte,
+          periodo: dadosMit && dadosMit.PeriodoApuracao ? dadosMit.PeriodoApuracao : null,
+          semMovimento
+        }
+      });
+    } catch (err) {
+      console.error('Erro em /api/mit/enviar-declaracao:', err);
+
+      const status = err.response && err.response.status ? err.response.status : 500;
+      const body = err.response && err.response.data ? err.response.data : null;
+
+      return res.status(status).json({
+        ok: false,
+        error: 'Erro ao enviar declaração MIT para o Integra Contador.',
+        detalhe: err.message || String(err),
+        serproStatus: status,
+        serproErro: body
+      });
+    }
+  }
+);
+
 
 // Rota para download do Excel gerado
 app.get(

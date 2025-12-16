@@ -106,6 +106,12 @@
         label.textContent = campo.label || campo.name;
 
         const input = document.createElement('input');
+
+        input.addEventListener('input', () => {
+          if (input.setCustomValidity) {
+            input.setCustomValidity('');
+          }
+        });
         input.id = `campo-${campo.name}`;
         input.name = campo.name;
         input.className = 'ata-field-input';
@@ -334,6 +340,12 @@
     const cpfInput = card.querySelector('input[name="pfCpf"]');
     aplicarMascaraCpf(cpfInput);
 
+    cpfInput.addEventListener('input', () => {
+      if (cpfInput.setCustomValidity) {
+        cpfInput.setCustomValidity('');
+      }
+    });
+
     container.appendChild(card);
   }
 
@@ -376,6 +388,12 @@
     const cpfInput = card.querySelector('input[name="pjCpf"]');
     aplicarMascaraCpf(cpfInput);
 
+    cpfInput.addEventListener('input', () => {
+      if (cpfInput.setCustomValidity) {
+        cpfInput.setCustomValidity('');
+      }
+    });
+
     container.appendChild(card);
   }
 
@@ -388,25 +406,47 @@
     const downloadWrapper = document.getElementById('ataDownloadWrapper');
     const downloadLink = document.getElementById('ataDownloadLink');
 
-    // validação de CPF/CNPJ: quantidade de dígitos obrigatória
+    // validação de CPF/CNPJ: CPF com dígitos verificadores e CNPJ por quantidade de dígitos
     for (const campo of camposDefinicoes) {
       if (campo.tipo === 'cpf' || campo.tipo === 'cnpj') {
         const input = document.getElementById(`campo-${campo.name}`);
         if (!input) continue;
 
-        const dig = apenasDigitos(input.value);
-        const expected = campo.tipo === 'cpf' ? 11 : 14;
-        if (dig && dig.length !== expected) {
-          const labelTipo = campo.tipo === 'cpf' ? 'CPF' : 'CNPJ';
-          const msg = `${labelTipo} deve ter ${expected} dígitos.`;
+        const valor = (input.value || '').trim();
+        const dig = apenasDigitos(valor);
 
+        console.log('Validando campo', campo.name, {
+          bruto: valor,
+          soDigitos: dig,
+          resultado: campo.tipo === 'cpf' ? validarCpf(valor) : dig.length
+        });
+
+        // se o campo estiver em branco, deixa passar (se quiser exigir preenchimento, é outra regra)
+        if (!dig) {
+          if (input.setCustomValidity) input.setCustomValidity('');
+          continue;
+        }
+
+        let msg = '';
+
+        if (campo.tipo === 'cpf') {
+          if (!validarCpf(valor)) {
+            msg = 'CPF inválido.';
+          }
+        } else {
+          // cnpj
+          if (dig.length !== 14) {
+            msg = 'CNPJ deve ter 14 dígitos.';
+          }
+        }
+
+        if (msg) {
           if (input.setCustomValidity) {
             input.setCustomValidity(msg);
-            input.reportValidity(); // mostra o balãozinho nativo
+            input.reportValidity(); // balãozinho nativo do browser
           } else {
-            alert(msg); // fallback, se o navegador for muito velho
+            alert(msg); // fallback
           }
-
           input.focus();
           return; // não deixa enviar o formulário
         } else if (input.setCustomValidity) {
@@ -463,23 +503,33 @@
       }
     }
 
-    // validação dos CPFs dos sócios
+    // validação dos CPFs dos sócios (PF e PJ)
     const sociosCpfInputs = document.querySelectorAll(
       '.socio-pf input[name="pfCpf"], .socio-pj input[name="pjCpf"]'
     );
+
     for (const input of sociosCpfInputs) {
-      const dig = apenasDigitos(input.value);
-      if (!dig) continue; // só valida se preencher algum
-      if (dig.length !== 11) {
-        const msg = 'CPF do sócio deve ter 11 dígitos.';
+      const valor = (input.value || '').trim();
+      console.log('Validando CPF sócio', input.name, { bruto: valor, soDigitos: apenasDigitos(valor), resultado: validarCpf(valor) });
+
+      // Se o campo estiver vazio, não valida (só valida se você preencher algum número)
+      if (!valor) {
+        if (input.setCustomValidity) input.setCustomValidity('');
+        continue;
+      }
+
+      if (!validarCpf(valor)) {
+        const msg = 'CPF do sócio inválido.';
+
         if (input.setCustomValidity) {
           input.setCustomValidity(msg);
-          input.reportValidity();
+          input.reportValidity();   // mostra o balãozinho em cima do campo
         } else {
           alert(msg);
         }
+
         input.focus();
-        return;
+        return; // NÃO deixa gerar a ata
       } else if (input.setCustomValidity) {
         input.setCustomValidity('');
       }
@@ -644,6 +694,34 @@
     return `${dig.slice(0, 3)}.${dig.slice(3, 6)}.${dig.slice(6, 9)}-${dig.slice(9)}`;
   }
 
+  function validarCpf(cpfTexto) {
+    const dig = apenasDigitos(cpfTexto);
+    if (dig.length !== 11) return false;
+
+    // rejeita CPFs com todos os dígitos iguais (111.111.111-11 etc.)
+    if (/^(\d)\1{10}$/.test(dig)) return false;
+
+    // 1º dígito verificador
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+      soma += parseInt(dig[i], 10) * (10 - i);
+    }
+    let resto = (soma * 10) % 11;
+    if (resto === 10) resto = 0;
+    if (resto !== parseInt(dig[9], 10)) return false;
+
+    // 2º dígito verificador
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+      soma += parseInt(dig[i], 10) * (11 - i);
+    }
+    resto = (soma * 10) % 11;
+    if (resto === 10) resto = 0;
+    if (resto !== parseInt(dig[10], 10)) return false;
+
+    return true;
+  }
+
   function formatarCep(texto) {
     const dig = apenasDigitos(texto);
     if (dig.length !== 8) return texto;
@@ -736,7 +814,6 @@
     if (!texto) return;
 
     try {
-      // Regras específicas por NOME de campo
       if (nomeCampo === 'NOME_EMPRESA') {
         input.value = texto.toUpperCase();
         return;
@@ -770,6 +847,12 @@
           .replace(/[^A-Z]/g, '')
           .slice(0, 2);
         input.value = letras;
+        return;
+      }
+
+      // >>> ADICIONE ISTO <<<
+      if (nomeCampo === 'RUA' || nomeCampo === 'BAIRRO') {
+        input.value = formatarCidade(texto);
         return;
       }
 
@@ -857,10 +940,12 @@
 
       if (bairroInput && info.neighborhood) {
         bairroInput.value = info.neighborhood;
+        formatarCampoSimples('BAIRRO', 'texto', bairroInput);
       }
 
       if (ruaInput && info.street) {
         ruaInput.value = info.street;
+        formatarCampoSimples('RUA', 'texto', ruaInput);
       }
 
       if (cepInput && info.cep) {
@@ -927,6 +1012,7 @@
 
       if (bairroInput && info.bairro) {
         bairroInput.value = info.bairro;
+        formatarCampoSimples('BAIRRO', 'texto', bairroInput);
       }
 
       let logradouro = '';
@@ -938,6 +1024,7 @@
       }
       if (ruaInput && logradouro) {
         ruaInput.value = logradouro.trim();
+        formatarCampoSimples('RUA', 'texto', ruaInput);
       }
 
       if (numeroInput && info.numero) {
@@ -949,11 +1036,72 @@
         formatarCampoSimples('CEP', 'cep', cepInput);
       }
 
+      popularSociosAPartirDoCnpj(info);
+
       if (status) status.textContent = '';
+
     } catch (err) {
       console.error('Erro ao consultar CNPJ:', err);
       if (status) status.textContent = 'Erro ao consultar CNPJ. Preencha manualmente.';
     }
   }
+
+  function popularSociosAPartirDoCnpj(info) {
+    // se não tiver QSA, não faz nada
+    if (!info || !Array.isArray(info.qsa)) return;
+
+    const containerPF = document.getElementById('assinaturasPF');
+    const containerPJ = document.getElementById('assinaturasPJ');
+    if (!containerPF || !containerPJ) return;
+
+    // limpa o que já existia (opcional, mas costuma ser o desejado)
+    containerPF.innerHTML = '';
+    containerPJ.innerHTML = '';
+
+    info.qsa.forEach((socio) => {
+      const nome = (socio.nome_socio || socio.nome || '').trim();
+      const qualificacao = (socio.qualificacao_socio || socio.qualificacao || '').trim();
+      const docSocio = (socio.cnpj_cpf_do_socio || '').trim();
+
+      if (!nome) return;
+
+      // regra simples: se o documento tiver 14+ dígitos, consideramos PJ
+      const digitosDoc = apenasDigitos(docSocio);
+      const ehPJ = digitosDoc.length === 14;
+
+      if (ehPJ) {
+        // adiciona card PJ e preenche
+        adicionarSocioPJ();
+        const cardsPJ = containerPJ.querySelectorAll('.socio-pj');
+        const card = cardsPJ[cardsPJ.length - 1];
+        if (!card) return;
+
+        const pjNomeInput = card.querySelector('input[name="pjNome"]');
+        const pjQualInput = card.querySelector('input[name="pjQualificacao"]');
+
+        if (pjNomeInput) pjNomeInput.value = nome;
+        if (pjQualInput && qualificacao) pjQualInput.value = qualificacao;
+
+        // representante/CPF do representante continuam em branco para o usuário preencher
+      } else {
+        // adiciona card PF e preenche
+        adicionarSocioPF();
+        const cardsPF = containerPF.querySelectorAll('.socio-pf');
+        const card = cardsPF[cardsPF.length - 1];
+        if (!card) return;
+
+        const pfNomeInput = card.querySelector('input[name="pfNome"]');
+        const pfQualInput = card.querySelector('input[name="pfQualificacao"]');
+        const pfCpfInput = card.querySelector('input[name="pfCpf"]');
+
+        if (pfNomeInput) pfNomeInput.value = nome;
+        if (pfQualInput && qualificacao) pfQualInput.value = qualificacao;
+
+        // CPF vem mascarado (***.***.***-**) → deixa em branco para digitar manualmente
+        if (pfCpfInput) pfCpfInput.value = '';
+      }
+    });
+  }
+
 
 })();

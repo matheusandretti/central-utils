@@ -44,6 +44,12 @@ const MENU_CONFIG = [
         href: '/sn',
         icon: '📄',
       },
+      {
+        id: 'mit',
+        label: 'Mit',
+        href: '/mit',
+        icon: '📄',
+      },
     ],
   },
   {

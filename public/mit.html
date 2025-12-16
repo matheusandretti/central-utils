@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal - Envio MIT Apuração DCTFWeb</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="app-body nfe-body">
+  <div class="nfe-layout">
+    <!-- SIDEBAR -->
+    <aside class="nfe-sidebar">
+      <div class="nfe-sidebar-top">
+        <div class="nfe-sidebar-logo">
+          <span class="logo-circle">WL</span>
+          <span class="logo-text">Portal</span>
+        </div>
+
+        <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <!-- placeholder da sidebar gerada via sidebar.js -->
+      <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+    </aside>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="nfe-main">
+      <!-- Cabeçalho / Breadcrumb -->
+      <header class="nfe-header">
+        <div class="nfe-breadcrumb">Portal / Fiscal / Envio MIT – Apuração DCTFWeb</div>
+        <h1>Envio MIT – Apuração DCTFWeb</h1>
+        <p>
+          Envie o arquivo JSON do MIT para a DCTFWEB.
+        </p>
+      </header>
+
+      <!-- Linha principal: upload + orientações -->
+      <section class="nfe-row">
+        <!-- CARD UPLOAD -->
+        <div class="nfe-card nfe-card-upload">
+          <h2>Upload do arquivo JSON do MIT</h2>
+          <p class="nfe-card-subtitle">
+            Anexe o arquivo do MIT gerado pelo sistema.
+            Caso sem movimento a DCTFWEB sera entregue automaticamente, caso MIT tenha movimento entre no Ecac para
+            gerar guias.
+          </p>
+
+          <form id="mitForm" class="nfe-upload-form">
+            <label for="mitFileInput" class="nfe-input-file-label">
+              <span>Selecionar arquivo JSON...</span>
+              <input type="file" id="mitFileInput" name="arquivo" accept=".json,application/json" required />
+            </label>
+
+            <!-- NOVO: Envio em lote sem movimento -->
+            <section class="nfe-row">
+              <div class="nfe-card nfe-card-upload sem-movimento-card">
+                <h2>Envio em lote - Sem Movimento</h2>
+                <p class="nfe-card-subtitle">
+                  Informe a competência e uma lista de CNPJs (manual, .txt ou .xlsx). O portal montará um JSON
+                  sem movimento para cada CNPJ e enviará a apuração ao MIT.
+                </p>
+
+                <form id="mitSemMovForm" class="nfe-upload-form">
+                  <div class="nfe-form-grid">
+                    <div class="nfe-form-group">
+                      <label for="semMovMes">Mês de apuração</label>
+                      <select id="semMovMes" name="mesApuracao" required>
+                        <option value="">Selecione...</option>
+                        <option value="1">01 - Janeiro</option>
+                        <option value="2">02 - Fevereiro</option>
+                        <option value="3">03 - Março</option>
+                        <option value="4">04 - Abril</option>
+                        <option value="5">05 - Maio</option>
+                        <option value="6">06 - Junho</option>
+                        <option value="7">07 - Julho</option>
+                        <option value="8">08 - Agosto</option>
+                        <option value="9">09 - Setembro</option>
+                        <option value="10">10 - Outubro</option>
+                        <option value="11">11 - Novembro</option>
+                        <option value="12">12 - Dezembro</option>
+                      </select>
+                    </div>
+
+                    <div class="nfe-form-group">
+                      <label for="semMovAno">Ano de apuração</label>
+                      <input type="number" id="semMovAno" name="anoApuracao" min="2000" max="2100" required
+                        placeholder="2025" />
+                    </div>
+                  </div>
+
+                  <div class="nfe-form-group">
+                    <label for="semMovCnpjsTexto">CNPJs (um por linha)</label>
+                    <textarea id="semMovCnpjsTexto" name="cnpjsTexto" rows="4"
+                      placeholder="00000000000000&#10;11111111111111&#10;..."></textarea>
+                  </div>
+
+                  <div class="nfe-form-group">
+                    <label for="semMovFile" class="nfe-input-file-label">
+                      <span>Importar lista de CNPJs (.txt ou .xlsx)...</span>
+                      <input type="file" id="semMovFile" name="cnpjsArquivo"
+                        accept=".txt,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
+                    </label>
+                    <small>
+                      <strong>.txt:</strong> um CNPJ por linha. <strong>.xlsx:</strong> qualquer coluna com CNPJs;
+                      o servidor extrai os números.
+                    </small>
+                  </div>
+
+                    <button type="submit" id="mitSubmitBtn" class="btn btn-primary">
+                    Enviar lote sem movimento
+                  </button>
+                </form>
+
+                <div id="semMovStatus" class="nfe-upload-message"></div>
+              </div>
+            </section>
+
+            <section class="nfe-card">
+              <div class="nfe-card-header">
+                <div>
+                  <h2>Retorno lote sem movimento</h2>
+                  <p class="nfe-card-subtitle">
+                    Resultado individual por CNPJ: status HTTP, mensagens de retorno, protocolo e idApuracao (quando
+                    houver).
+                  </p>
+                </div>
+              </div>
+
+              <pre id="semMovLog" class="mit-log"></pre>
+            </section>
+
+
+            <button type="submit" id="mitSubmitBtn" class="btn btn-primary">
+              Enviar apuração para o MIT
+            </button>
+          </form>
+
+          <div id="mitStatus" class="nfe-upload-message"></div>
+        </div>
+
+        <!-- CARD ORIENTAÇÕES -->
+        <div class="nfe-card nfe-card-ext">
+          <h2>Regras de envio</h2>
+          <p class="nfe-card-subtitle">
+            Este serviço usa as credenciais e o certificado do escritorio para comunicar com o
+            Integra Contador / ECAC.
+          </p>
+          <ul>
+            <li>O nome do arquivo deve iniciar com os 8 primeiros dígitos do CNPJ raiz da empresa.</li>
+            <li>O script assume sempre a matriz "<strong>0001</strong>".</li>
+            <li>
+              Se Sem Movimento a DCTFWEB sera transmitida automaticamente.
+            </li>
+            <li>
+              O resultado da chamada MIT (mensagens, protocolo, idApuracao) é exibido logo abaixo.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Resultado / log -->
+      <section class="nfe-card">
+        <div class="nfe-card-header">
+          <div>
+            <h2>Retorno do MIT</h2>
+            <p class="nfe-card-subtitle">
+              Veja o status de retorno e, quando houver, o protocolo de encerramento e o id da apuração.
+            </p>
+          </div>
+        </div>
+
+        <pre id="mitLog" class="mit-log"></pre>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/sidebar.js"></script>
+  <!-- Página com upload de arquivo deve incluir o helper global -->
+  <script src="/js/upload-helper.js"></script> <!-- :contentReference[oaicite:5]{index=5} -->
+  <script src="/js/mit.js"></script>
+</body>
+
+</html>

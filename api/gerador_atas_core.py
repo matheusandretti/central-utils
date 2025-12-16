@@ -6,6 +6,11 @@ from typing import List, Dict, Any
 from docx import Document
 from docx.shared import Pt
 
+import re
+from typing import List, Dict, Any
+from docx.document import Document as _Document
+from docx.table import _Cell
+
 # =========================
 # Diretórios de trabalho
 # =========================
@@ -22,6 +27,49 @@ SAIDA_DIR.mkdir(parents=True, exist_ok=True)
 # Utilidades de formatação
 # =========================
 
+def remover_linhas_lucros_sem_valor(doc: _Document, lucros=None) -> None:
+    def eh_tabela_lucros(table) -> bool:
+        for row in table.rows:
+            if len(row.cells) < 2:
+                continue
+            c0 = row.cells[0].text.strip().lower()
+            c1 = row.cells[1].text.strip().lower()
+            if "exerc" in c0 and "lucro" in c1:
+                return True
+        return False
+
+    def valor_e_zero_ou_vazio(texto: str) -> bool:
+        txt = (texto or "").strip()
+        if not txt:
+            return True
+        if "{{" in txt and "}}" in txt:
+            return True        # placeholder sobrou → trata como “sem valor”
+        dig = "".join(ch for ch in txt if ch.isdigit())
+        if not dig:
+            return True
+        try:
+            return int(dig) == 0
+        except ValueError:
+            return False
+
+    for table in doc.tables:
+        if not eh_tabela_lucros(table):
+            continue
+
+        rows = list(table.rows)
+        for row in rows:
+            if len(row.cells) < 2:
+                continue
+
+            texto_ano = row.cells[0].text.strip().lower()
+            if "exerc" in texto_ano:       # cabeçalho
+                continue
+            if texto_ano.startswith("total"):
+                continue                   # linha Total sempre fica
+
+            texto_valor = row.cells[1].text
+            if valor_e_zero_ou_vazio(texto_valor):
+                table._tbl.remove(row._tr)
 
 def apenas_digitos(texto: str) -> str:
     return "".join(ch for ch in texto if ch.isdigit())
@@ -197,7 +245,6 @@ def label_amigavel(nome: str) -> str:
         return especiais[nome]
     return nome.replace("_", " ").title()
 
-
 # =========================
 # Placeholders e DOCX
 # =========================
@@ -368,7 +415,8 @@ def calcular_campos_lucros(lucros: List[Dict[str, Any]]) -> Dict[str, str]:
 def completar_lucros_zerados(modelo_path: Path, dados: Dict[str, str]) -> None:
     """
     Para todo placeholder LUCRO_... encontrado no modelo, se não houver valor
-    correspondente em 'dados', preenche com '0,00' para evitar {{LUCRO_XXXX}} visível.
+    correspondente em 'dados', preenche com string vazia ("") para não ficar
+    {{LUCRO_XXXX}} visível. NÃO coloca 0,00.
     """
     try:
         placeholders = encontrar_placeholders_docx(modelo_path)
@@ -377,7 +425,7 @@ def completar_lucros_zerados(modelo_path: Path, dados: Dict[str, str]) -> None:
 
     for ph in placeholders:
         if ph.startswith("LUCRO_") and ph not in dados:
-            dados[ph] = "0,00"
+            dados[ph] = ""
 
 # =========================
 # Assinaturas
@@ -551,12 +599,17 @@ def gerar_ata(
     # lucros
     if lucros:
         dados.update(calcular_campos_lucros(lucros))
-        
-    # Preenche lucros que não vieram da tela com 0,00
+
+    # preenche LUCRO_... que não vieram da tela com "" (sem 0,00)
     completar_lucros_zerados(modelo_path, dados)
 
-    # gerar documento
+    # gerar documento com placeholders substituídos
     doc = preencher_documento(modelo_path, dados)
+
+    # remover linhas da tabela de lucros que não têm valor (ou são 0,00)
+    remover_linhas_lucros_sem_valor(doc, lucros)
+
+    # assinaturas
     aplicar_assinaturas_no_doc(doc, assinaturas_pf, assinaturas_pj)
 
     nome_saida = montar_nome_arquivo_saida(modelo_path, dados)

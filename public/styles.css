@@ -1318,6 +1318,21 @@ body.nfe-body {
   white-space: pre;  /* mantém o layout do TXT em colunas */
 }
 
+/* ===== Ferramenta: Entregador MIT =====  */
+.mit-log {
+  margin-top: 10px;
+  padding: 10px;
+  background: #020617;
+  color: #e5e7eb;
+  border-radius: 10px;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+
 /* ===== Ferramenta: Acerto Lotes Toscan ===== */
 
 .acerto-lotes-toscan-preview-wrapper {
@@ -1487,4 +1502,127 @@ body.wl-page-dragover::after {
 .nfe-progress-text {
   min-width: 32px;
   text-align: right;
+}
+
+/* ==== Ajustes visuais do card "Envio em lote - Sem Movimento" ==== */
+.sem-movimento-card {
+  margin-top: 1.5rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem 2rem;
+}
+
+.sem-movimento-card h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.sem-movimento-card .nfe-card-subtitle {
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin-bottom: 1rem;
+}
+
+.nfe-form-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nfe-form-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.nfe-form-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.nfe-form-group input,
+.nfe-form-group select,
+.nfe-form-group textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  transition: border 0.2s ease;
+}
+
+.nfe-form-group input:focus,
+.nfe-form-group select:focus,
+.nfe-form-group textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb33;
+}
+
+.nfe-form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+#semMovFile {
+  cursor: pointer;
+}
+
+#semMovStatus {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+#semMovSubmitBtn {
+  width: 100%;
+  font-size: 0.95rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+#semMovSubmitBtn:hover {
+  background: #1d4ed8;
+}
+
+/* Responsividade */
+@media (min-width: 768px) {
+  .sem-movimento-card {
+    max-width: 800px;
+  }
+  .nfe-form-grid .nfe-form-group {
+    flex: 1;
+    min-width: 200px;
+  }
+}
+
+/* === Correção de largura do card "Envio em lote - Sem Movimento" === */
+.sem-movimento-card {
+  width: 100%;
+  max-width: 100%;          /* ocupar toda a largura disponível */
+  box-sizing: border-box;
+}
+
+/* se quiser que os dois cards fiquem exatamente iguais, forçamos o mesmo container */
+.nfe-row .nfe-card-upload,
+.nfe-row .sem-movimento-card {
+  flex: 1 1 100%;
+}
+
+/* garante que textarea e input acompanhem largura total */
+.sem-movimento-card .nfe-form-group textarea,
+.sem-movimento-card .nfe-form-group input,
+.sem-movimento-card .nfe-form-group select {
+  width: 100%;
 }
