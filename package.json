@@ -10,7 +10,8 @@
   "start": "node src/worker.js",
   "dev:node": "node src/worker.js",
   "dev:py": ".venv\\Scripts\\python.exe -m uvicorn api.integra_api:app --host 127.0.0.1 --port 8001",
-  "dev": "concurrently --kill-others-on-fail \"npm run dev:node\" \"npm run dev:py\""
+  "dev": "concurrently --kill-others-on-fail \"npm run dev:node\" \"npm run dev:py\" \"npm run dev:go\"",
+  "dev:go": "cd go-api && go run ."
 },
   "keywords": [],
   "dependencies": {

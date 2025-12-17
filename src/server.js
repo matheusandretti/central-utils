@@ -2520,3 +2520,130 @@ app.get('/api/separador-csv-baixa-automatica/download/:jobId', (req, res) => {
 
   return res.download(zipPath, `separador-csv-baixa-automatica-${jobId}.zip`);
 });
+
+// --- Nova página: ajuste-diario-gfbr-c ---
+app.get('/ajuste-diario-gfbr-c', (req, res) => {
+  res.sendFile(path.join(publicDir, 'ajuste-diario-gfbr-c.html'));
+});
+
+app.post('/api/ajuste-diario-gfbr-c/processar', upload.single('arquivoDiario'), async (req, res) => {
+  let tempDir = null;
+  let tempFilePath = null;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ ok: false, error: 'Arquivo é obrigatório.' });
+    }
+
+    const goBase = process.env.GO_API_URL || 'http://127.0.0.1:8002';
+
+    const FormData = require('form-data');
+    const fd = new FormData();
+
+    // --------- GARANTIR UM CAMINHO DE ARQUIVO (multer diskStorage OU memoryStorage) ----------
+    if (req.file.path) {
+      // diskStorage
+      tempFilePath = req.file.path;
+    } else if (req.file.buffer) {
+      // memoryStorage -> grava em temp para poder fazer createReadStream
+      const os = require('os');
+      const crypto = require('crypto');
+
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ajuste-diario-gfbr-c-'));
+      const safeName = (req.file.originalname || 'diario.xlsx').replace(/[^\w.\- ]+/g, '_');
+      tempFilePath = path.join(tempDir, `${crypto.randomBytes(6).toString('hex')}-${safeName}`);
+
+      fs.writeFileSync(tempFilePath, req.file.buffer);
+    } else {
+      return res.status(400).json({
+        ok: false,
+        error: 'Upload inválido. Não foi possível acessar o arquivo (sem path e sem buffer).'
+      });
+    }
+
+    // Go espera o campo "arquivo"
+    fd.append('arquivo', fs.createReadStream(tempFilePath), req.file.originalname);
+
+    // --------- MAPEAR CAMPOS DO FRONT (padrão do HTML/JS original) ----------
+    const abaOrigem = (req.body?.abaOrigem || '').trim();
+    if (abaOrigem) fd.append('aba', abaOrigem);
+
+    // no front vem "true"/"false"
+    const criarBackupRaw = String(req.body?.criarBackup ?? '').trim().toLowerCase();
+    // o Go aceita "true"/"false"/"1"/"0" etc
+    if (criarBackupRaw) fd.append('criar_backup', criarBackupRaw);
+
+    // --------- CHAMAR GO E REPASSAR STATUS/JSON ----------
+    const resp = await axios.post(`${goBase}/api/ajuste-diario-gfbr-c/processar`, fd, {
+      headers: fd.getHeaders(),
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      validateStatus: () => true // não explode em 4xx/5xx, a gente repassa
+    });
+
+    return res.status(resp.status || 200).json(resp.data);
+
+  } catch (err) {
+    console.error('Erro em /api/ajuste-diario-gfbr-c/processar:', err?.message || err);
+    return res.status(500).json({ ok: false, error: 'Erro ao processar requisição.' });
+  } finally {
+    // limpeza do arquivo temporário (se foi criado por memoryStorage)
+    try {
+      if (tempFilePath && tempDir && fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+    } catch (_) {}
+
+    try {
+      if (tempDir && fs.existsSync(tempDir)) fs.rmdirSync(tempDir);
+    } catch (_) {}
+
+    // limpeza do upload local do Node (se multer usou diskStorage)
+    try {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    } catch (_) {}
+  }
+});
+
+app.get('/api/ajuste-diario-gfbr-c/download/ajustado/:id', async (req, res) => {
+  try {
+    const goBase = process.env.GO_API_URL || 'http://127.0.0.1:8002';
+    const id = encodeURIComponent(req.params.id);
+
+    const resp = await axios.get(`${goBase}/api/ajuste-diario-gfbr-c/download/ajustado/${id}`, {
+      responseType: 'stream',
+      validateStatus: () => true
+    });
+
+    if (resp.status >= 400) return res.status(resp.status).send('Arquivo não encontrado ou expirado.');
+
+    if (resp.headers['content-type']) res.setHeader('Content-Type', resp.headers['content-type']);
+    if (resp.headers['content-disposition']) res.setHeader('Content-Disposition', resp.headers['content-disposition']);
+
+    resp.data.pipe(res);
+  } catch (err) {
+    console.error('Erro em download ajustado:', err?.message || err);
+    return res.status(404).send('Arquivo não encontrado ou expirado.');
+  }
+});
+
+app.get('/api/ajuste-diario-gfbr-c/download/backup/:id', async (req, res) => {
+  try {
+    const goBase = process.env.GO_API_URL || 'http://127.0.0.1:8002';
+    const id = encodeURIComponent(req.params.id);
+
+    const resp = await axios.get(`${goBase}/api/ajuste-diario-gfbr-c/download/backup/${id}`, {
+      responseType: 'stream',
+      validateStatus: () => true
+    });
+
+    if (resp.status >= 400) return res.status(resp.status).send('Backup não encontrado ou expirado.');
+
+    if (resp.headers['content-type']) res.setHeader('Content-Type', resp.headers['content-type']);
+    if (resp.headers['content-disposition']) res.setHeader('Content-Disposition', resp.headers['content-disposition']);
+
+    resp.data.pipe(res);
+  } catch (err) {
+    console.error('Erro em download backup:', err?.message || err);
+    return res.status(404).send('Backup não encontrado ou expirado.');
+  }
+});
+

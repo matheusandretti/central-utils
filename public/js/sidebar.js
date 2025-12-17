@@ -76,9 +76,9 @@ const MENU_CONFIG = [
         icon: '📊',
       },
       {
-        id: 'ajuste-diario-gfbr',
+        id: 'ajuste-diario-gfbr-c',
         label: 'Ajuste Diario GFBR',
-        href: '/ajuste-diario-gfbr',
+        href: '/ajuste-diario-gfbr-c',
         icon: '📄',
       },
       {
