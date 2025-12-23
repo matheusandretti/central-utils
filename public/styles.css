@@ -1626,3 +1626,97 @@ body.wl-page-dragover::after {
 .sem-movimento-card .nfe-form-group select {
   width: 100%;
 }
+
+/* Trechos novos para colar em styles.css */
+.tool-calculadora-icms-st-inline {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tool-calculadora-icms-st-check {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  user-select: none;
+}
+
+.tool-calculadora-icms-st-badge {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tool-calculadora-icms-st-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tool-calculadora-icms-st-log {
+  white-space: pre-wrap;
+  line-height: 1.4;
+  opacity: 0.95;
+}
+
+.tool-calculadora-icms-st-mva-ref tr.is-active td {
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+}
+
+/* Trechos novos para colar em styles.css */
+.auth-page {
+  min-height: 100vh;
+}
+
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 460px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.auth-input,
+.auth-textarea {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.auth-textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 12px;
+}
+
+.auth-message {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #6b7280;
+}

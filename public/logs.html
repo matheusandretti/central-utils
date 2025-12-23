@@ -1,0 +1,105 @@
+<!-- public/logs.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin - Logs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+
+  <body class="app-body nfe-body">
+    <div class="nfe-layout">
+      <aside class="nfe-sidebar">
+        <div class="nfe-sidebar-top">
+          <div class="nfe-sidebar-logo">
+            <span class="logo-circle">WL</span>
+            <span class="logo-text">Portal</span>
+          </div>
+
+          <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+
+        <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+      </aside>
+
+      <main class="nfe-main">
+        <header class="nfe-header">
+          <h1>Administração — Logs</h1>
+          <p>Auditoria de acessos e ações do portal.</p>
+
+          <div class="nfe-table-actions" style="margin-top: 10px">
+            <a class="btn btn-secondary" href="/admin-usuarios">Usuários</a>
+            <button class="btn btn-ghost-danger" id="btnLogout">Sair</button>
+          </div>
+
+          <div id="whoami" class="nfe-card-subtitle" style="margin-top: 8px"></div>
+        </header>
+
+        <section class="nfe-card">
+          <div class="nfe-card-header">
+            <h2>Filtros</h2>
+          </div>
+
+          <form id="filterForm" class="nfe-row" style="grid-template-columns: 1fr 1fr 1fr 1fr">
+            <label class="auth-label">
+              Ação
+              <input id="action" class="auth-input" placeholder="ex.: login_success" />
+            </label>
+
+            <label class="auth-label">
+              Usuário (username)
+              <input id="username" class="auth-input" placeholder="ex.: admin" />
+            </label>
+
+            <label class="auth-label">
+              Data início
+              <input id="startDate" type="date" class="auth-input" />
+            </label>
+
+            <label class="auth-label">
+              Data fim
+              <input id="endDate" type="date" class="auth-input" />
+            </label>
+
+            <div class="nfe-table-actions" style="grid-column: 1 / -1">
+              <button class="btn btn-primary" type="submit">Buscar</button>
+              <button class="btn btn-secondary" type="button" id="btnClearFilters">Limpar</button>
+            </div>
+
+            <div id="logsMessage" class="auth-message" aria-live="polite" style="grid-column: 1 / -1"></div>
+          </form>
+        </section>
+
+        <section class="nfe-card nfe-card-table">
+          <div class="nfe-card-header">
+            <h2>Registros</h2>
+            <p class="nfe-card-subtitle">Últimos eventos de auditoria.</p>
+          </div>
+
+          <div class="nfe-table-wrapper">
+            <table class="nfe-table">
+              <thead>
+                <tr>
+                  <th>Quando</th>
+                  <th>Usuário</th>
+                  <th>Ação</th>
+                  <th>Status</th>
+                  <th>IP</th>
+                  <th>Detalhes</th>
+                </tr>
+              </thead>
+              <tbody id="logsTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/auth-client.js"></script>
+    <script src="/js/logs.js"></script>
+  </body>
+</html>

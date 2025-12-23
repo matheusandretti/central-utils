@@ -11,6 +11,9 @@ const { autenticarSerpro } = require("./serpro-auth");
 const { Pool } = require('pg'); // << ADICIONE ESTA LINHA
 const archiver = require('archiver');
 const { createHttpsAgent, obterToken } = require('./serpro-auth'); // reaproveita seu serpro-auth.js;
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -105,6 +108,8 @@ const SEPARADOR_CSV_BASE_DIR = path.join(DATA_DIR, 'separador-csv-baixa-automati
 const SEPARADOR_CSV_UPLOAD_DIR = path.join(SEPARADOR_CSV_BASE_DIR, 'uploads');
 const SEPARADOR_CSV_OUTPUT_DIR = path.join(SEPARADOR_CSV_BASE_DIR, 'outputs');
 
+app.set('trust proxy', false);
+
 // Middleware de upload exclusivo para esta ferramenta
 const uploadSeparadorCsv = multer({
   dest: SEPARADOR_CSV_UPLOAD_DIR,
@@ -116,7 +121,7 @@ app.use(
   cors({
     origin: '*', // se quiser, depois restringe pra 'http://localhost:3000' ou similar
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'X-CSRF-Token', 'x-csrf-token'],
   })
 );
 
@@ -125,12 +130,197 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const publicDir = path.join(__dirname, '..', 'public');
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(publicDir, 'home.html')); // sua tela de cards
+// cookie parse simples (sem dependência extra)
+function parseCookies(req) {
+  const header = req.headers.cookie || '';
+  const out = {};
+  header.split(';').forEach((part) => {
+    const [k, ...v] = part.trim().split('=');
+    if (!k) return;
+    out[k] = decodeURIComponent(v.join('=') || '');
+  });
+  return out;
+}
+
+function sha256(input) {
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
+function randomToken(bytes = 32) {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+function appendSetCookie(res, cookieStr) {
+  const prev = res.getHeader('Set-Cookie');
+  if (!prev) res.setHeader('Set-Cookie', cookieStr);
+  else if (Array.isArray(prev)) res.setHeader('Set-Cookie', [...prev, cookieStr]);
+  else res.setHeader('Set-Cookie', [prev, cookieStr]);
+}
+
+function setSessionCookie(res, token) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const maxAge = Number(process.env.AUTH_SESSION_MAX_AGE_SECONDS || 60 * 60 * 24 * 7);
+  const parts = [
+    `wl_session=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${maxAge}`,
+  ];
+  if (isProd) parts.push('Secure');
+  appendSetCookie(res, parts.join('; '));
+}
+
+function clearSessionCookie(res) {
+  const isProd = process.env.NODE_ENV === 'production';
+  appendSetCookie(
+    res,
+    `wl_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${isProd ? '; Secure' : ''}`
+  );
+}
+
+async function auditLog({ userId = null, email = null, action, status = 'ok', meta = null, req }) {
+  try {
+    const ipRaw =
+      (req.headers['x-forwarded-for'] || '').toString().split(',')[0].trim() ||
+      req.ip ||
+      req.socket?.remoteAddress ||
+      null;
+
+    const ip = (ipRaw || '').toString().replace(/^::ffff:/, '').slice(0, 120);
+
+    const ua = (req.headers['user-agent'] || '').toString().slice(0, 400);
+
+    await pool.query(
+      `INSERT INTO audit_logs (user_id, email, action, status, meta, ip, user_agent)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [userId, email, action, status, meta, ip, ua]
+    );
+  } catch (e) {
+    console.error('Falha ao gravar audit log:', e.message || e);
+  }
+}
+
+async function getSessionUser(req) {
+  const cookies = parseCookies(req);
+  const token = cookies.wl_session;
+  if (!token) return null;
+
+  const tokenHash = sha256(token);
+
+  const result = await pool.query(
+    `SELECT s.id as session_id, s.user_id, s.csrf_token,
+            u.email, u.name, u.role, u.is_active
+       FROM auth_sessions s
+       JOIN auth_users u ON u.id = s.user_id
+      WHERE s.token_hash = $1 AND s.expires_at > NOW()
+      LIMIT 1`,
+    [tokenHash]
+  );
+
+  if (!result.rows.length) return null;
+  const row = result.rows[0];
+  if (!row.is_active) return null;
+
+  return {
+    sessionId: row.session_id,
+    user: { id: row.user_id, email: row.email, name: row.name, role: row.role },
+    csrfToken: row.csrf_token,
+  };
+}
+
+async function requireAuth(req, res, next) {
+  try {
+    const ctx = await getSessionUser(req);
+    if (!ctx) return res.status(401).json({ error: 'Não autenticado' });
+    req.auth = ctx;
+    return next();
+  } catch (e) {
+    console.error('requireAuth erro:', e.message || e);
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+}
+
+async function requireAuthPage(req, res, next) {
+  try {
+    const ctx = await getSessionUser(req);
+    if (!ctx) return res.redirect('/login');
+    req.auth = ctx;
+    return next();
+  } catch (_) {
+    return res.redirect('/login');
+  }
+}
+
+function requireRole(role) {
+  return (req, res, next) => {
+    const userRole = req.auth?.user?.role;
+    if (userRole !== role) return res.status(403).json({ error: 'Sem permissão' });
+    next();
+  };
+}
+
+function requireAdminPage(req, res, next) {
+  if (req.auth?.user?.role !== 'ADMIN') return res.status(403).send('Sem permissão');
+  next();
+}
+
+function requireCsrf(req, res, next) {
+  const method = (req.method || 'GET').toUpperCase();
+  if (method === 'GET') return next();
+
+  const sent = (req.headers['x-csrf-token'] || '').toString();
+  const expected = req.auth?.csrfToken || '';
+  if (!sent || !expected || sent !== expected) {
+    return res.status(403).json({ error: 'CSRF inválido' });
+  }
+  next();
+}
+
+function normalizeEmail(email) {
+  return (email || '').toString().trim().toLowerCase();
+}
+
+function normalizeRole(role) {
+  const r = (role || '').toString().trim().toUpperCase();
+  return r === 'ADMIN' ? 'ADMIN' : 'USER';
+}
+
+function isValidEmail(email) {
+  // validação simples o suficiente para login interno
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// Rate limit para login
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.AUTH_LOGIN_RATE_LIMIT_PER_MINUTE || 10),
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-app.get('/nfe', (req, res) => {
-  res.sendFile(path.join(publicDir, 'nfe.html'));  // nova tela modernizada
+app.get('/', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
+  res.sendFile(path.join(publicDir, 'home.html'));
+});
+
+app.get('/nfe', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
+  res.sendFile(path.join(publicDir, 'nfe.html'));
 });
 
 // para conseguir ler JSON do body (usado em /api/mark-done e SN)
@@ -392,6 +582,67 @@ function registrarSnResultado(sucesso) {
 // Pool do Postgres
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+});
+
+async function initSecuritySchemaAndBootstrap() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_users (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'USER',
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      csrf_token TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NULL,
+      email TEXT NULL,
+      action TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'ok',
+      meta JSONB NULL,
+      ip TEXT NULL,
+      user_agent TEXT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  // bootstrap admin via .env (cria apenas se não existir)
+  const adminEmail = (process.env.ADMIN_BOOTSTRAP_EMAIL || '').trim().toLowerCase();
+  const adminName = (process.env.ADMIN_BOOTSTRAP_NAME || 'Administrador').trim();
+  const adminPass = (process.env.ADMIN_BOOTSTRAP_PASS || '').trim();
+
+  if (adminEmail && adminPass) {
+    const r = await pool.query('SELECT id FROM auth_users WHERE email=$1 LIMIT 1', [adminEmail]);
+    if (!r.rows.length) {
+      const hash = await bcrypt.hash(adminPass, 12);
+      await pool.query(
+        `INSERT INTO auth_users (name, email, password_hash, role, is_active)
+         VALUES ($1,$2,$3,'ADMIN',true)`,
+        [adminName, adminEmail, hash]
+      );
+      console.log(`[SECURITY] Admin bootstrap criado: ${adminEmail}`);
+    }
+  }
+}
+
+initSecuritySchemaAndBootstrap().catch((e) => {
+  console.error('[SECURITY] Falha ao inicializar schema/boot:', e.message || e);
 });
 
 // ---------- FUNÇÕES AUXILIARES (Entregador MIT) ----------
@@ -697,7 +948,26 @@ async function criarZipComPdfs(pastaPdfs, destinoZip) {
   });
 }
 
-app.get('/sn', (req, res) => {
+// Página de login (pública)
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(publicDir, 'login.html'));
+});
+
+// --- Páginas protegidas (exemplos) ---
+// Ajuste suas rotas existentes para incluir checagem:
+// app.get('/', ...), app.get('/nfe', ...), etc.
+// Exemplo:
+// app.get('/', async (req, res) => { ... })  ==>  app.get('/', requireAuthPage, async (req,res)=>{...})
+
+app.get('/sn', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'sn.html'));
 });
 
@@ -774,8 +1044,30 @@ app.get('/api/sn/receipt/:id', async (req, res) => {
   }
 });
 
+// --- Nova página: calculadora-icms-st ---
+
+app.get('/calculadora-icms-st', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
+  res.sendFile(path.join(publicDir, 'calculadora-icms-st.html'));
+});
+
 // --- Nova página: Envio MIT Apuração DCTFWeb ---
-app.get('/mit', (req, res) => {
+app.get('/mit', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'mit.html'));
 });
 
@@ -1354,10 +1646,18 @@ app.post('/api/sn/consult-last', async (req, res) => {
 });
 
 // --- Nova página: separador-pdf-relatorio-de-ferias ---
-app.get('/separador-pdf-relatorio-de-ferias', (req, res) => {
+
+app.get('/separador-pdf-relatorio-de-ferias', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'separador-pdf-relatorio-de-ferias.html'));
 });
-
 // --- API da ferramenta separador-pdf-relatorio-de-ferias ---
 app.post(
   '/api/separador-pdf-relatorio-de-ferias/processar',
@@ -1416,7 +1716,16 @@ app.post(
 );
 
 // Página: Separador Holerites por Empresa
-app.get('/separador-holerites-por-empresa', (req, res) => {
+
+app.get('/separador-holerites-por-empresa', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'separador-holerites-por-empresa.html'));
 });
 
@@ -1496,7 +1805,15 @@ app.post(
   }
 );
 
-app.get('/separador-ferias-funcionario', (req, res) => {
+app.get('/separador-ferias-funcionario', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'separador-ferias-funcionario.html'));
 });
 
@@ -1617,7 +1934,16 @@ app.get(
 );
 
 // perto das outras rotas de página
-app.get('/gerador-atas', (req, res) => {
+
+app.get('/gerador-atas', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'gerador-atas.html'));
 });
 
@@ -1744,7 +2070,16 @@ app.get('/api/cnpj/:cnpj', async (req, res) => {
 });
 
 // Página: Acertos Lotes Internets
-app.get('/acertos-lotes-internets', (req, res) => {
+
+app.get('/acertos-lotes-internets', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'acertos-lotes-internets.html'));
 });
 
@@ -1793,11 +2128,29 @@ app.post('/api/acertos-lotes-internets/process',
 );
 
 // Página: Acerto Lotes Toscan (separada do Acertos Lotes Internets)
-app.get('/acerto-lotes-toscan', (req, res) => {
+
+app.get('/acerto-lotes-toscan', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'acerto-lotes-toscan.html'));
 });
 
-app.get('/comprimir-pdf', (req, res) => {
+
+app.get('/comprimir-pdf', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'comprimir-pdf.html'));
 });
 
@@ -1869,7 +2222,15 @@ app.post(
 
 // server.js
 
-app.get('/extrator-zip-rar', (req, res) => {
+app.get('/extrator-zip-rar', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'extrator-zip-rar.html'));
 });
 
@@ -1956,9 +2317,19 @@ extratorZipRarRouter.get('/download/:jobId', (req, res) => {
 app.use('/api/extrator-zip-rar', extratorZipRarRouter);
 
 // Página Excel → Abas em PDF
-app.get('/excel-abas-pdf', (req, res) => {
+
+app.get('/excel-abas-pdf', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'excel-abas-pdf.html'));
 });
+
 
 // Upload de Excel + chamada ao backend Python para exportar abas em PDF
 // Rota: upload + chamada ao backend Python
@@ -2066,7 +2437,15 @@ app.get('/api/excel-abas-pdf/download/:jobId', (req, res) => {
 });
 
 // --- Nova página: importador-recebimentos-madre-scp ---
-app.get('/importador-recebimentos-madre-scp', (req, res) => {
+app.get('/importador-recebimentos-madre-scp', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'importador-recebimentos-madre-scp.html'));
 });
 
@@ -2302,7 +2681,15 @@ app.get(
 );
 
 // --- Nova página: ajuste-diario-gfbr ---
-app.get('/ajuste-diario-gfbr', (req, res) => {
+app.get('/ajuste-diario-gfbr', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'ajuste-diario-gfbr.html'));
 });
 
@@ -2412,7 +2799,15 @@ app.get('/api/ajuste-diario-gfbr/download-backup/:fileName', (req, res) => {
 });
 
 // --- Nova página: separador-csv-baixa-automatica ---
-app.get('/separador-csv-baixa-automatica', (req, res) => {
+app.get('/separador-csv-baixa-automatica', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'separador-csv-baixa-automatica.html'));
 });
 
@@ -2522,7 +2917,15 @@ app.get('/api/separador-csv-baixa-automatica/download/:jobId', (req, res) => {
 });
 
 // --- Nova página: ajuste-diario-gfbr-c ---
-app.get('/ajuste-diario-gfbr-c', (req, res) => {
+app.get('/ajuste-diario-gfbr-c', requireAuthPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    username: req.auth.user.username,
+    action: 'page_view_home',
+    status: 'ok',
+    meta: { path: '/' },
+    req,
+  });
   res.sendFile(path.join(publicDir, 'ajuste-diario-gfbr-c.html'));
 });
 
@@ -2590,16 +2993,16 @@ app.post('/api/ajuste-diario-gfbr-c/processar', upload.single('arquivoDiario'), 
     // limpeza do arquivo temporário (se foi criado por memoryStorage)
     try {
       if (tempFilePath && tempDir && fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       if (tempDir && fs.existsSync(tempDir)) fs.rmdirSync(tempDir);
-    } catch (_) {}
+    } catch (_) { }
 
     // limpeza do upload local do Node (se multer usou diskStorage)
     try {
       if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    } catch (_) {}
+    } catch (_) { }
   }
 });
 
@@ -2647,3 +3050,584 @@ app.get('/api/ajuste-diario-gfbr-c/download/backup/:id', async (req, res) => {
   }
 });
 
+// Páginas Admin (protegidas)
+app.get('/admin-usuarios', requireAuthPage, requireAdminPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    email: req.auth.user.email,
+    action: 'page_view_admin_users',
+    status: 'ok',
+    meta: { path: '/admin-usuarios' },
+    req,
+  });
+  res.sendFile(path.join(publicDir, 'admin-usuarios.html'));
+});
+
+app.get('/logs', requireAuthPage, requireAdminPage, async (req, res) => {
+  await auditLog({
+    userId: req.auth.user.id,
+    email: req.auth.user.email,
+    action: 'page_view_logs',
+    status: 'ok',
+    meta: { path: '/logs' },
+    req,
+  });
+  res.sendFile(path.join(publicDir, 'logs.html'));
+});
+
+// API AUTH
+app.post('/api/auth/login', loginLimiter, express.json(), async (req, res) => {
+  const { email, password } = req.body || {};
+  const e = normalizeEmail(email);
+
+  try {
+    if (!isValidEmail(e)) {
+      await auditLog({ action: 'login_failed', status: 'error', meta: { email: e, reason: 'invalid_email' }, req });
+      return res.status(400).json({ error: 'E-mail inválido' });
+    }
+
+    const r = await pool.query(
+      `SELECT id, email, name, password_hash, role, is_active
+         FROM auth_users
+        WHERE email = $1
+        LIMIT 1`,
+      [e]
+    );
+
+    if (!r.rows.length) {
+      await auditLog({ action: 'login_failed', status: 'error', meta: { email: e, reason: 'not_found' }, req });
+      return res.status(401).json({ error: 'E-mail ou senha inválidos' });
+    }
+
+    const user = r.rows[0];
+    if (!user.is_active) {
+      await auditLog({ action: 'login_failed', status: 'error', meta: { email: e, reason: 'inactive' }, req });
+      return res.status(401).json({ error: 'Usuário inativo' });
+    }
+
+    const ok = await bcrypt.compare(password || '', user.password_hash || '');
+    if (!ok) {
+      await auditLog({ action: 'login_failed', status: 'error', meta: { email: e, reason: 'bad_password' }, req });
+      return res.status(401).json({ error: 'E-mail ou senha inválidos' });
+    }
+
+    // cria sessão
+    const token = randomToken(32);
+    const tokenHash = sha256(token);
+    const csrfToken = randomToken(24);
+    const maxAgeSeconds = Number(process.env.AUTH_SESSION_MAX_AGE_SECONDS || 60 * 60 * 24 * 7);
+
+    await pool.query(
+      `INSERT INTO auth_sessions (user_id, token_hash, csrf_token, expires_at)
+       VALUES ($1, $2, $3, NOW() + ($4 || ' seconds')::interval)`,
+      [user.id, tokenHash, csrfToken, String(maxAgeSeconds)]
+    );
+
+    setSessionCookie(res, token);
+
+    await auditLog({
+      userId: user.id,
+      email: user.email,
+      action: 'login_success',
+      status: 'ok',
+      meta: { role: user.role },
+      req,
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('login erro:', e.message || e);
+    return res.status(500).json({ error: 'Erro interno no login' });
+  }
+});
+
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const ctx = await getSessionUser(req);
+    if (!ctx) return res.status(401).json({ error: 'Não autenticado' });
+    return res.json({ user: ctx.user, csrfToken: ctx.csrfToken });
+  } catch (e) {
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const ctx = await getSessionUser(req);
+    if (ctx?.sessionId) {
+      await pool.query('DELETE FROM auth_sessions WHERE id = $1', [ctx.sessionId]);
+      await auditLog({
+        userId: ctx.user.id,
+        email: ctx.user.email,
+        action: 'logout',
+        status: 'ok',
+        meta: null,
+        req,
+      });
+    }
+  } catch (_) { }
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+
+// API ADMIN: usuários
+app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, name, email, role, is_active, created_at
+         FROM auth_users
+        ORDER BY email ASC`
+    );
+    return res.json({ ok: true, users: r.rows });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro ao listar usuários' });
+  }
+});
+
+app.post(
+  '/api/admin/users',
+  requireAuth,
+  requireRole('ADMIN'),
+  requireCsrf,
+  express.json(),
+  async (req, res) => {
+    try {
+      const name = (req.body?.name || '').toString().trim();
+      const email = normalizeEmail(req.body?.email);
+      const password = (req.body?.password || '').toString();
+      const role = normalizeRole(req.body?.role || 'USER');
+      const isActive = req.body?.is_active === false ? false : true;
+
+      if (!name || name.length < 2) return res.status(400).json({ error: 'Nome inválido' });
+      if (!isValidEmail(email)) return res.status(400).json({ error: 'E-mail inválido' });
+      if (!password || password.length < 6) return res.status(400).json({ error: 'Senha inválida (mínimo 6)' });
+
+      const hash = await bcrypt.hash(password, 12);
+
+      const r = await pool.query(
+        `INSERT INTO auth_users (name, email, password_hash, role, is_active)
+         VALUES ($1,$2,$3,$4,$5)
+         RETURNING id, name, email, role, is_active, created_at`,
+        [name, email, hash, role, isActive]
+      );
+
+      await auditLog({
+        userId: req.auth.user.id,
+        email: req.auth.user.email,
+        action: 'user_create',
+        status: 'ok',
+        meta: { created_user_id: r.rows[0].id, created_email: email },
+        req,
+      });
+
+      return res.json({ ok: true, user: r.rows[0] });
+    } catch (e) {
+      if (String(e?.code) === '23505') return res.status(409).json({ error: 'E-mail já existe' });
+      console.error(e);
+      return res.status(500).json({ error: 'Erro ao criar usuário' });
+    }
+  }
+);
+
+app.patch(
+  '/api/admin/users/:id',
+  requireAuth,
+  requireRole('ADMIN'),
+  requireCsrf,
+  express.json(),
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+
+      const name = req.body?.name != null ? String(req.body.name).trim() : null;
+      const email = req.body?.email != null ? normalizeEmail(req.body.email) : null;
+      const role = req.body?.role != null ? normalizeRole(req.body.role) : null;
+      const isActive = req.body?.is_active != null ? !!req.body.is_active : null;
+
+      if (name !== null && name.length < 2) return res.status(400).json({ error: 'Nome inválido' });
+      if (email !== null && !isValidEmail(email)) return res.status(400).json({ error: 'E-mail inválido' });
+
+      // evita se trancar fora
+      if (req.auth.user.id === id && isActive === false) {
+        return res.status(400).json({ error: 'Você não pode desativar seu próprio usuário' });
+      }
+
+      const fields = [];
+      const params = [];
+      let i = 1;
+
+      if (name !== null) { fields.push(`name = $${i++}`); params.push(name); }
+      if (email !== null) { fields.push(`email = $${i++}`); params.push(email); }
+      if (role !== null) { fields.push(`role = $${i++}`); params.push(role); }
+      if (isActive !== null) { fields.push(`is_active = $${i++}`); params.push(isActive); }
+
+      if (!fields.length) return res.status(400).json({ error: 'Nada para atualizar' });
+
+      params.push(id);
+      const r = await pool.query(
+        `UPDATE auth_users
+            SET ${fields.join(', ')}
+          WHERE id = $${i}
+        RETURNING id, name, email, role, is_active, created_at`,
+        params
+      );
+
+      if (!r.rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+      await auditLog({
+        userId: req.auth.user.id,
+        email: req.auth.user.email,
+        action: 'user_update',
+        status: 'ok',
+        meta: { target_user_id: id, fields: fields.map(f => f.split('=')[0].trim()) },
+        req,
+      });
+
+      return res.json({ ok: true, user: r.rows[0] });
+    } catch (e) {
+      if (String(e?.code) === '23505') return res.status(409).json({ error: 'E-mail já existe' });
+      console.error(e);
+      return res.status(500).json({ error: 'Erro ao atualizar usuário' });
+    }
+  }
+);
+
+app.patch(
+  '/api/admin/users/:id/password',
+  requireAuth,
+  requireRole('ADMIN'),
+  requireCsrf,
+  express.json(),
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const password = (req.body?.password || '').toString();
+
+      if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+      if (!password || password.length < 6) return res.status(400).json({ error: 'Senha inválida (mínimo 6)' });
+
+      const hash = await bcrypt.hash(password, 12);
+
+      const r = await pool.query(`UPDATE auth_users SET password_hash = $1 WHERE id = $2 RETURNING id`, [hash, id]);
+      if (!r.rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+      // segurança: encerra sessões do usuário após reset de senha
+      await pool.query(`DELETE FROM auth_sessions WHERE user_id = $1`, [id]);
+
+      await auditLog({
+        userId: req.auth.user.id,
+        email: req.auth.user.email,
+        action: 'user_password_reset',
+        status: 'ok',
+        meta: { target_user_id: id },
+        req,
+      });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: 'Erro ao alterar senha' });
+    }
+  }
+);
+
+app.delete(
+  '/api/admin/users/:id',
+  requireAuth,
+  requireRole('ADMIN'),
+  requireCsrf,
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+
+      if (req.auth.user.id === id) {
+        return res.status(400).json({ error: 'Você não pode excluir seu próprio usuário' });
+      }
+
+      await pool.query(`DELETE FROM auth_sessions WHERE user_id = $1`, [id]);
+
+      const r = await pool.query(`DELETE FROM auth_users WHERE id = $1 RETURNING id, email`, [id]);
+      if (!r.rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+      await auditLog({
+        userId: req.auth.user.id,
+        email: req.auth.user.email,
+        action: 'user_delete',
+        status: 'ok',
+        meta: { deleted_user_id: id, deleted_email: r.rows[0].email },
+        req,
+      });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ error: 'Erro ao excluir usuário' });
+    }
+  }
+);
+
+// API ADMIN: importação (CSV/linhas) - formato: nome;email;senha;tipo_acesso
+app.post(
+  '/api/admin/users/import',
+  requireAuth,
+  requireRole('ADMIN'),
+  requireCsrf,
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      const usersText = (req.body?.usersText || '').toString();
+      const fileBuf = req.file?.buffer;
+
+      const lines = [];
+      if (fileBuf && fileBuf.length) {
+        fileBuf
+          .toString('utf-8')
+          .split(/\r?\n/)
+          .forEach((l) => lines.push(l));
+      }
+      if (usersText) {
+        usersText.split(/\r?\n/).forEach((l) => lines.push(l));
+      }
+
+      // parse simples por ; (ou ,)
+      const parsed = [];
+      for (const rawLine of lines) {
+        const line = (rawLine || '').trim();
+        if (!line) continue;
+        if (line.startsWith('#')) continue;
+
+        const sep = line.includes(';') ? ';' : ',';
+        const parts = line.split(sep).map((p) => (p ?? '').trim());
+
+        // pula header comum
+        const head = parts.map((p) => p.toLowerCase());
+        if (head.includes('nome') && head.includes('email') && head.includes('senha')) continue;
+
+        const name = parts[0] || '';
+        const email = normalizeEmail(parts[1] || '');
+        const password = parts[2] || '';
+        const role = normalizeRole(parts[3] || 'USER');
+
+        if (!name || !email || !password) continue;
+        parsed.push({ name, email, password, role });
+      }
+
+      if (!parsed.length) return res.status(400).json({ error: 'Nenhum usuário válido para importar' });
+
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
+
+      for (const u of parsed) {
+        if (!isValidEmail(u.email)) {
+          skipped++;
+          continue;
+        }
+
+        const hash = await bcrypt.hash(u.password, 12);
+
+        // upsert por email
+        const r = await pool.query(
+          `INSERT INTO auth_users (name, email, password_hash, role, is_active)
+           VALUES ($1,$2,$3,$4,true)
+           ON CONFLICT (email)
+           DO UPDATE SET name = EXCLUDED.name,
+                         password_hash = EXCLUDED.password_hash,
+                         role = EXCLUDED.role,
+                         is_active = true
+           RETURNING (xmax = 0) AS inserted`,
+          [u.name, u.email, hash, u.role]
+        );
+
+        if (r.rows?.[0]?.inserted) created++;
+        else updated++;
+      }
+
+      await auditLog({
+        userId: req.auth.user.id,
+        email: req.auth.user.email,
+        action: 'users_import',
+        status: 'ok',
+        meta: { created, updated, skipped, total: parsed.length },
+        req,
+      });
+
+      return res.json({ ok: true, created, updated, skipped });
+    } catch (e) {
+      console.error(e);
+      await auditLog({
+        userId: req.auth.user.id,
+        email: req.auth.user.email,
+        action: 'users_import',
+        status: 'error',
+        meta: { error: e.message || String(e) },
+        req,
+      });
+      return res.status(500).json({ error: 'Erro ao importar usuários' });
+    }
+  }
+);
+
+// API ADMIN: importação (CSV/linhas) - formato: nome;email;senha;tipo_acesso
+app.post(
+  '/api/admin/users/import',
+  requireAuth,
+  requireRole('ADMIN'),
+  requireCsrf,
+  upload.single('file'),
+  async (req, res) => {
+    try {
+      const usersText = (req.body?.usersText || '').toString();
+      const fileBuf = req.file?.buffer;
+
+      const lines = [];
+      if (fileBuf && fileBuf.length) {
+        fileBuf
+          .toString('utf-8')
+          .split(/\r?\n/)
+          .forEach((l) => lines.push(l));
+      }
+      if (usersText) {
+        usersText.split(/\r?\n/).forEach((l) => lines.push(l));
+      }
+
+      // parse simples por ; (ou ,)
+      const parsed = [];
+      for (const rawLine of lines) {
+        const line = (rawLine || '').trim();
+        if (!line) continue;
+        if (line.startsWith('#')) continue;
+
+        const sep = line.includes(';') ? ';' : ',';
+        const parts = line.split(sep).map((p) => (p ?? '').trim());
+
+        // pula header comum
+        const head = parts.map((p) => p.toLowerCase());
+        if (head.includes('nome') && head.includes('email') && head.includes('senha')) continue;
+
+        const name = parts[0] || '';
+        const email = normalizeEmail(parts[1] || '');
+        const password = parts[2] || '';
+        const role = normalizeRole(parts[3] || 'USER');
+
+        if (!name || !email || !password) continue;
+        parsed.push({ name, email, password, role });
+      }
+
+      if (!parsed.length) return res.status(400).json({ error: 'Nenhum usuário válido para importar' });
+
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
+
+      for (const u of parsed) {
+        if (!isValidEmail(u.email)) {
+          skipped++;
+          continue;
+        }
+
+        const hash = await bcrypt.hash(u.password, 12);
+
+        // upsert por email
+        const r = await pool.query(
+          `INSERT INTO auth_users (name, email, password_hash, role, is_active)
+           VALUES ($1,$2,$3,$4,true)
+           ON CONFLICT (email)
+           DO UPDATE SET name = EXCLUDED.name,
+                         password_hash = EXCLUDED.password_hash,
+                         role = EXCLUDED.role,
+                         is_active = true
+           RETURNING (xmax = 0) AS inserted`,
+          [u.name, u.email, hash, u.role]
+        );
+
+        if (r.rows?.[0]?.inserted) created++;
+        else updated++;
+      }
+
+      await auditLog({
+        userId: req.auth.user.id,
+        email: req.auth.user.email,
+        action: 'users_import',
+        status: 'ok',
+        meta: { created, updated, skipped, total: parsed.length },
+        req,
+      });
+
+      return res.json({ ok: true, created, updated, skipped });
+    } catch (e) {
+      console.error(e);
+      await auditLog({
+        userId: req.auth.user.id,
+        email: req.auth.user.email,
+        action: 'users_import',
+        status: 'error',
+        meta: { error: e.message || String(e) },
+        req,
+      });
+      return res.status(500).json({ error: 'Erro ao importar usuários' });
+    }
+  }
+);
+
+function isValidName(name) {
+  const n = (name || '').toString().trim();
+  return n.length >= 2 && n.length <= 120;
+}
+
+function isValidPassword(pw) {
+  const p = (pw || '').toString();
+  return p.length >= 6 && p.length <= 200;
+}
+
+// API ADMIN: logs
+app.get('/api/admin/audit-logs', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const { action, email, startDate, endDate } = req.query || {};
+
+    const where = [];
+    const params = [];
+    let i = 1;
+
+    if (action) {
+      where.push(`action ILIKE $${i++}`);
+      params.push(`%${action}%`);
+    }
+    if (email) {
+      where.push(`l.email ILIKE $${i++}`);
+      params.push(`%${String(email)}%`);
+    }
+    if (startDate) {
+      where.push(`created_at >= $${i++}`);
+      params.push(`${startDate} 00:00:00`);
+    }
+    if (endDate) {
+      where.push(`created_at <= $${i++}`);
+      params.push(`${endDate} 23:59:59`);
+    }
+
+    const sql =
+      `SELECT
+      l.created_at,
+      COALESCE(u.name, '-') AS name,
+      COALESCE(l.email, u.email, '-') AS email,
+      l.action,
+      l.status,
+      l.ip,
+      l.meta
+   FROM audit_logs l
+   LEFT JOIN auth_users u ON u.id = l.user_id` +
+      (where.length ? ` WHERE ${where.join(' AND ')}` : '') +
+      ` ORDER BY l.created_at DESC
+    LIMIT 500`;
+
+    const r = await pool.query(sql, params);
+    return res.json({ ok: true, logs: r.rows });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Erro ao consultar logs' });
+  }
+});

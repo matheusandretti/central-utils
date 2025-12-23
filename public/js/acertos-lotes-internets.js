@@ -2,6 +2,14 @@
 
 let ultimoResultadoLoteInternets = null;
 
+// Remove o trecho "<muitos espaços>0" no fim de cada linha (mantém a linha)
+function removerCampoZeroNoFim(texto) {
+  if (typeof texto !== 'string' || !texto) return texto;
+  // Ex.: "                                0" (com possíveis espaços após o 0)
+  // Somente quando estiver no FINAL da linha.
+  return texto.replace(/[ ]{10,}0[ ]*(?=\r?$)/gm, '');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Inicializa a sidebar com o ID da página
   if (typeof inicializarSidebar === 'function') {
@@ -47,6 +55,14 @@ function inicializarPaginaAcertosLoteInternets() {
             (data && (data.error || data.message)) ||
             'Erro ao processar o arquivo.';
           throw new Error(msg);
+        }
+
+        // Ajuste local: mantém as linhas, mas remove o "<muitos espaços>0" no final.
+        if (data && typeof data.processedContent === 'string') {
+          data.processedContent = removerCampoZeroNoFim(data.processedContent);
+        }
+        if (data && typeof data.removedContent === 'string') {
+          data.removedContent = removerCampoZeroNoFim(data.removedContent);
         }
 
         ultimoResultadoLoteInternets = data;

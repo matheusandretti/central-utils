@@ -134,6 +134,15 @@ const MENU_CONFIG = [
     ],
   },
   {
+    id: 'admin',
+    label: 'Admin',
+    icon: '🔐',
+    items: [
+      { id: 'admin-usuarios', label: 'Usuários', href: '/admin-usuarios', icon: '👥' },
+      { id: 'audit-logs', label: 'Logs / Auditoria', href: '/logs', icon: '🧾' },
+    ],
+  },
+  {
     id: 'ti',
     label: 'Desenvolvendo',
     icon: '🛠️',

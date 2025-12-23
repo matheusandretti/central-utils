@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin - Usuários</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+
+  <body class="app-body nfe-body">
+    <div class="nfe-layout">
+      <aside class="nfe-sidebar">
+        <div class="nfe-sidebar-top">
+          <div class="nfe-sidebar-logo">
+            <span class="logo-circle">WL</span>
+            <span class="logo-text">Portal</span>
+          </div>
+          <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+        <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+      </aside>
+
+      <main class="nfe-main">
+        <header class="nfe-header">
+          <h1>Administração — Usuários</h1>
+          <p>Importe e gerencie usuários (nome, e-mail, senha e tipo de acesso).</p>
+
+          <div class="nfe-table-actions" style="margin-top: 10px">
+            <a class="btn btn-secondary" href="/logs">Ver Logs</a>
+            <button class="btn btn-ghost-danger" id="btnLogout">Sair</button>
+          </div>
+
+          <div id="whoami" class="nfe-card-subtitle" style="margin-top: 8px"></div>
+        </header>
+
+        <section class="nfe-card">
+          <div class="nfe-card-header">
+            <h2>Importar usuários</h2>
+            <p class="nfe-card-subtitle">
+              CSV no formato: <strong>nome;email;senha;tipo_acesso</strong>
+              (tipo_acesso: ADMIN/USER)
+            </p>
+          </div>
+
+          <form id="importForm">
+            <label for="fileInput" class="nfe-input-file-label">
+              <span>Selecionar CSV</span>
+              <input type="file" id="fileInput" name="file" accept=".csv,.txt" />
+            </label>
+
+            <label class="auth-label" style="display: block; margin-top: 10px">
+              Linhas (opcional)
+              <textarea
+                id="usersText"
+                class="auth-textarea"
+                rows="8"
+                placeholder="Maria Silva;maria@empresa.com.br;Senha@123;USER&#10;João Pereira;joao@empresa.com.br;Senha@456;ADMIN"
+              ></textarea>
+            </label>
+
+            <div class="nfe-table-actions" style="margin-top: 10px">
+              <button type="submit" class="btn btn-primary" id="btnImport">Importar</button>
+            </div>
+
+            <div id="importMessage" class="auth-message" aria-live="polite"></div>
+          </form>
+        </section>
+
+        <section class="nfe-card nfe-card-table">
+          <div class="nfe-card-header nfe-card-header-with-actions">
+            <div>
+              <h2>Usuários cadastrados</h2>
+              <p class="nfe-card-subtitle">Nome, e-mail e perfil.</p>
+            </div>
+            <div class="nfe-table-actions">
+              <button class="btn btn-secondary" id="btnReloadUsers">Recarregar</button>
+              <button class="btn btn-primary" id="btnNewUser">Novo usuário</button>
+            </div>
+          </div>
+
+          <div class="nfe-table-wrapper">
+            <table class="nfe-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Role</th>
+                  <th>Ativo</th>
+                  <th>Criado em</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/upload-helper.js"></script>
+    <script src="/js/auth-client.js"></script>
+    <script src="/js/admin-usuarios.js"></script>
+  </body>
+</html>

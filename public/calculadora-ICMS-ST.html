@@ -1,0 +1,339 @@
+<!-- arquivo sugerido: public/calculadora-icms-st.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PORTAL WILSON LOPES - Calculadora ICMS ST</title>
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body class="app-body nfe-body">
+    <div class="nfe-layout">
+        <aside class="nfe-sidebar">
+            <div class="nfe-sidebar-top">
+                <div class="nfe-sidebar-logo">
+                    <span class="logo-circle">WL</span>
+                    <span class="logo-text">Portal</span>
+                </div>
+
+                <button class="nfe-sidebar-toggle" id="sidebarToggle" type="button">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+
+            <nav class="nfe-sidebar-menu" id="sidebarMenu"></nav>
+        </aside>
+
+        <main class="nfe-main">
+            <header class="nfe-header">
+                <div class="nfe-breadcrumb">Portal / Fiscal / ICMS ST</div>
+                <h1>Calculadora de ICMS ST (NF-e via XML)</h1>
+                <p>Envie o XML, defina regimes e MVAs e obtenha o cálculo de ICMS ST por produto.</p>
+            </header>
+
+            <!-- Entrada -->
+            <section class="nfe-row">
+                <div class="nfe-card nfe-card-upload">
+                    <h2>Entrada da NF-e</h2>
+                    <p class="nfe-card-subtitle">
+                        Você pode informar a chave (busca futura) e/ou anexar o XML manualmente.
+                    </p>
+
+                    <form id="form-calculadora-icms-st" class="nfe-upload-form">
+                        <label class="nfe-input-file-label">
+                            <span>Chave da NF-e (futuro):</span>
+                            <input type="text" id="chaveNfe" maxlength="44" placeholder="44 dígitos (opcional)" />
+                        </label>
+
+                        <label class="nfe-input-file-label">
+                            <span>Selecionar XML:</span>
+                            <input type="file" id="xmlInput" accept=".xml,text/xml,application/xml" required />
+                        </label>
+
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button type="submit" class="btn btn-primary">Carregar XML</button>
+                            <button type="button" id="btnBuscarChave" class="btn btn-secondary" disabled>
+                                Buscar pela chave (em breve)
+                            </button>
+                        </div>
+
+                        <div id="msgEntrada" class="nfe-upload-message"></div>
+                    </form>
+                </div>
+
+                <!-- Parâmetros -->
+                <div class="nfe-card nfe-card-ext">
+                    <h2>Parâmetros do cálculo</h2>
+                    <p class="nfe-card-subtitle">Marque os regimes e defina a alíquota do destino.</p>
+
+                    <div class="nfe-section">
+                        <div class="tool-calculadora-icms-st-inline">
+                            <label class="tool-calculadora-icms-st-check">
+                                <input type="checkbox" id="vendedorSimples" />
+                                <span>Vendedor é Simples Nacional</span>
+                            </label>
+
+                            <label class="tool-calculadora-icms-st-check">
+                                <input type="checkbox" id="compradorSimples" />
+                                <span>Comprador é Simples Nacional</span>
+                            </label>
+
+                            <label class="tool-calculadora-icms-st-check">
+                                <input type="checkbox" id="produtosAutopecas" />
+                                <span>Produtos são autopeças (usar MVA fixa)</span>
+                            </label>
+                        </div>
+
+                        <hr class="nfe-divider" />
+
+                        <div class="nfe-upload-form">
+                            <label class="nfe-input-file-label">
+                                <span>UF Origem (XML):</span>
+                                <input type="text" id="ufOrigem" readonly />
+                            </label>
+
+                            <label class="nfe-input-file-label">
+                                <span>UF Destino (XML):</span>
+                                <input type="text" id="ufDestino" readonly />
+                            </label>
+
+                            <label class="nfe-input-file-label">
+                                <span>Alíquota UF destino (%):</span>
+                                <input type="text" id="aliquotaDestino" placeholder="Ex.: 19,5" />
+                            </label>
+                        </div>
+
+                        <div class="tool-calculadora-icms-st-badge" id="mvaModoBadge">Carregue um XML para ver o modo de MVA.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Referência MVA (tabela do print) -->
+            <section class="nfe-card nfe-card-table">
+                <div class="nfe-card-header">
+                    <h2>Referência rápida — uso de MVA (para orientar o preenchimento)</h2>
+                    <p class="nfe-card-subtitle">
+                        A linha aplicável será destacada conforme regimes e operação interna/interestadual.
+                    </p>
+                </div>
+
+                <div class="nfe-table-wrapper">
+                    <table class="nfe-table tool-calculadora-icms-st-mva-ref" id="mvaRefTable">
+                        <thead>
+                            <tr>
+                                <th colspan="4">Operações Internas</th>
+                            </tr>
+                            <tr>
+                                <th>Remetente</th>
+                                <th></th>
+                                <th>Destinatário</th>
+                                <th>MVA aplicada</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-scope="interna" data-rem="normal" data-dest="normal">
+                                <td>Regime Normal</td>
+                                <td>→</td>
+                                <td>Regime Normal</td>
+                                <td>MVA Ajustada a 12%</td>
+                            </tr>
+                            <tr data-scope="interna" data-rem="normal" data-dest="sn">
+                                <td>Regime Normal</td>
+                                <td>→</td>
+                                <td>Simples Nacional</td>
+                                <td>MVA Ajustada a 12% Reduzida</td>
+                            </tr>
+                            <tr data-scope="interna" data-rem="sn" data-dest="normal">
+                                <td>Simples Nacional</td>
+                                <td>→</td>
+                                <td>Regime Normal</td>
+                                <td>MVA Original</td>
+                            </tr>
+                            <tr data-scope="interna" data-rem="sn" data-dest="sn">
+                                <td>Simples Nacional</td>
+                                <td>→</td>
+                                <td>Simples Nacional</td>
+                                <td>MVA Original Reduzida</td>
+                            </tr>
+                        </tbody>
+
+                        <thead>
+                            <tr>
+                                <th colspan="4">Operações Interestaduais</th>
+                            </tr>
+                            <tr>
+                                <th>Remetente</th>
+                                <th></th>
+                                <th>Destinatário</th>
+                                <th>MVA aplicada</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-scope="inter" data-rem="normal" data-dest="normal">
+                                <td>Regime Normal</td>
+                                <td>→</td>
+                                <td>Regime Normal</td>
+                                <td>MVA Ajustada a 12% ou a 4%</td>
+                            </tr>
+                            <tr data-scope="inter" data-rem="normal" data-dest="sn">
+                                <td>Regime Normal</td>
+                                <td>→</td>
+                                <td>Simples Nacional</td>
+                                <td>MVA Ajustada a 12% ou 4% Reduzida</td>
+                            </tr>
+                            <tr data-scope="inter" data-rem="sn" data-dest="normal">
+                                <td>Simples Nacional</td>
+                                <td>→</td>
+                                <td>Regime Normal</td>
+                                <td>MVA Original</td>
+                            </tr>
+                            <tr data-scope="inter" data-rem="sn" data-dest="sn">
+                                <td>Simples Nacional</td>
+                                <td>→</td>
+                                <td>Simples Nacional</td>
+                                <td>MVA Original Reduzida</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- MVAs autopeças (fixo/editável) -->
+            <section class="nfe-card" id="autopecasCard" style="display:none;">
+                <h2>MVA autopeças (fixa, editável)</h2>
+                <p class="nfe-card-subtitle">Valores padrão: Original 71,78% | Ajustada 12% 87,78% | Ajustada 4%
+                    104,86%.</p>
+
+                <div class="nfe-upload-form">
+                    <label class="nfe-input-file-label">
+                        <span>MVA Original (%):</span>
+                        <input type="text" id="autoMvaOriginal" />
+                    </label>
+                    <label class="nfe-input-file-label">
+                        <span>MVA Ajustada 12% (%):</span>
+                        <input type="text" id="autoMvaAjustada12" />
+                    </label>
+                    <label class="nfe-input-file-label">
+                        <span>MVA Ajustada 4% (%):</span>
+                        <input type="text" id="autoMvaAjustada4" />
+                    </label>
+                </div>
+
+                <div class="tool-calculadora-icms-st-note">
+                    Obs.: se o seu caso exigir “reduzida”, você pode ajustar manualmente os valores acima para o cenário
+                    da nota.
+                </div>
+            </section>
+
+            <!-- Totais XML -->
+            <section class="nfe-card">
+                <h2>Totais do XML</h2>
+                <p class="nfe-card-subtitle">Extraídos de ICMSTot do XML (quando presentes).</p>
+
+                <div class="nfe-upload-form">
+                    <label class="nfe-input-file-label"><span>Produtos:</span><input type="text" id="t_vProd"
+                            readonly /></label>
+                    <label class="nfe-input-file-label"><span>IPI:</span><input type="text" id="t_vIPI"
+                            readonly /></label>
+                    <label class="nfe-input-file-label"><span>Frete:</span><input type="text" id="t_vFrete"
+                            readonly /></label>
+                    <label class="nfe-input-file-label"><span>Seguro:</span><input type="text" id="t_vSeg"
+                            readonly /></label>
+                    <label class="nfe-input-file-label"><span>Desconto:</span><input type="text" id="t_vDesc"
+                            readonly /></label>
+                    <label class="nfe-input-file-label"><span>Outras:</span><input type="text" id="t_vOutro"
+                            readonly /></label>
+                    <label class="nfe-input-file-label"><span>ICMS:</span><input type="text" id="t_vICMS"
+                            readonly /></label>
+                    <label class="nfe-input-file-label"><span>ICMS ST:</span><input type="text" id="t_vST"
+                            readonly /></label>
+                </div>
+            </section>
+
+            <!-- MVA por combinação -->
+            <section class="nfe-card nfe-card-table" id="mvaCombosCard" style="display:none;">
+                <div class="nfe-card-header">
+                    <h2>MVA por NCM + alíquota destacada</h2>
+                    <p class="nfe-card-subtitle">
+                        A lista abaixo elimina combinações repetidas. Informe a MVA (%) que será aplicada em cada
+                        combinação.
+                    </p>
+                </div>
+
+                <div class="nfe-table-wrapper">
+                    <table class="nfe-table">
+                        <thead>
+                            <tr>
+                                <th>NCM</th>
+                                <th>Alíquota do item (pICMS %)</th>
+                                <th>Tipo de MVA esperado</th>
+                                <th>MVA a aplicar (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mvaCombosBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Tabela ST por produto -->
+            <section class="nfe-card nfe-card-table">
+                <div class="nfe-card-header">
+                    <h2>Cálculo de ICMS ST por produto</h2>
+                    <p class="nfe-card-subtitle">
+                        Base ST = (prod + IPI + outras + frete + seguro - desconto) × (1 + MVA)
+                        ####
+                        ICMS ST = Base × alíquota destino - ICMS do item - ICMS ST destacado.
+                    </p>
+                </div>
+
+                <div class="nfe-table-wrapper">
+                    <table class="nfe-table">
+                        <thead>
+                            <tr>
+                                <th>ST?</th>
+                                <th>Produto</th>
+                                <th>NCM</th>
+                                <th>pICMS (%)</th>
+                                <th>MVA (%)</th>
+                                <th>Base ST</th>
+                                <th>Valor ICMS ST</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stItensBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Resumo -->
+            <section class="nfe-card">
+                <h2>Resumo</h2>
+                <div class="nfe-upload-form">
+                    <label class="nfe-input-file-label"><span>Total Base ST (calculado):</span><input type="text"
+                            id="r_totalBaseSt" readonly /></label>
+                    <label class="nfe-input-file-label"><span>Total ICMS ST (calculado):</span><input type="text"
+                            id="r_totalIcmsSt" readonly /></label>
+                    <label class="nfe-input-file-label"><span>ICMS ST no XML:</span><input type="text"
+                            id="r_totalIcmsStXml" readonly /></label>
+                    <label class="nfe-input-file-label"><span>Diferença (calc - XML):</span><input type="text"
+                            id="r_diff" readonly /></label>
+                </div>
+
+                <div class="tool-calculadora-icms-st-note" id="warnBox" style="display:none;"></div>
+            </section>
+
+            <!-- Logs -->
+            <section class="nfe-card">
+                <h2>Status / Logs</h2>
+                <div id="logBox" class="tool-calculadora-icms-st-log">Carregue um XML para iniciar.</div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/upload-helper.js"></script>
+    <script src="/js/calculadora-icms-st.js"></script>
+</body>
+
+</html>
